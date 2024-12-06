@@ -258,7 +258,7 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 //		glDrawElements(GL_LINE_LOOP, sizeof(playerInd)/sizeof(unsigned int), GL_UNSIGNED_INT, 0);
-		glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(12), 10000);
+		glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(12), 15000);
 
 		// Swap front and back buffers
 		glfwSwapBuffers(window);
