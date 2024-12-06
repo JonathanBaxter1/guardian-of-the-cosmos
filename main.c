@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -50,6 +51,44 @@ static unsigned int createShader(const char* vertexShader, const char* fragmentS
 	glDeleteShader(fs);
 
 	return program;
+}
+
+static unsigned int createShaderFromFiles(char* vertexFileName, char* fragmentFileName)
+{
+	FILE *vertexFile = fopen(vertexFileName, "r");
+	if (vertexFile == NULL) {
+		printf("Could not read vertex shader file: %s\n", vertexFileName);
+		glfwTerminate();
+		exit(-1);
+	}
+	char* vertexShader = NULL;
+	size_t vertexShaderLen;
+	ssize_t vertexBytesRead = getdelim(&vertexShader, &vertexShaderLen, '\0', vertexFile);
+	if (vertexBytesRead == -1) {
+		printf("Error reading vertex shader file: %s\n", vertexFileName);
+		glfwTerminate();
+		exit(-1);
+	}
+
+	FILE *fragmentFile = fopen(fragmentFileName, "r");
+	if (fragmentFile == NULL) {
+		printf("Could not read fragment shader file: %s\n", fragmentFileName);
+		glfwTerminate();
+		exit(-1);
+	}
+	char* fragmentShader = NULL;
+	size_t fragmentShaderLen;
+	ssize_t fragmentBytesRead = getdelim(&fragmentShader, &fragmentShaderLen, '\0', fragmentFile);
+	if (fragmentBytesRead == -1) {
+		printf("Error reading fragment shader file: %s\n", fragmentFileName);
+		glfwTerminate();
+		exit(-1);
+	}
+
+	unsigned int shader = createShader(vertexShader, fragmentShader);
+	free(vertexShader);
+	free(fragmentShader);
+	return shader;
 }
 
 void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -198,33 +237,7 @@ int main(void)
 	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerInd), sizeof(enemyInd), enemyInd);
 
 	// Read shader code from files
-	FILE *vertexFile = fopen("vertex.shader", "r");
-	if (vertexFile == NULL) {
-		printf("Could not read vertex shader file\n");
-		return -1;
-	}
-	char* vertexShader = NULL;
-	size_t vertexShaderLen;
-	ssize_t vertexBytesRead = getdelim(&vertexShader, &vertexShaderLen, '\0', vertexFile);
-	if (vertexBytesRead == -1) {
-		printf("Error reading vertex shader file\n");
-		return -1;
-	}
-
-	FILE *fragmentFile = fopen("fragment.shader", "r");
-	if (fragmentFile == NULL) {
-		printf("Could not read fragment shader file\n");
-		return -1;
-	}
-	char* fragmentShader = NULL;
-	size_t fragmentShaderLen;
-	ssize_t fragmentBytesRead = getdelim(&fragmentShader, &fragmentShaderLen, '\0', fragmentFile);
-	if (fragmentBytesRead == -1) {
-		printf("Error reading fragment shader file\n");
-		return -1;
-	}
-
-	unsigned int shader = createShader(vertexShader, fragmentShader);
+	unsigned int shader = createShaderFromFiles("vertex.shader", "fragment.shader");
 	glUseProgram(shader);
 
 	// Square Color
