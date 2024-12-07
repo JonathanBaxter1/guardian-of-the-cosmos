@@ -8,7 +8,7 @@
 #define PI 3.14159265358979323846
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 800
-#define WINDOW_NAME "OpenGL Test #1"
+#define WINDOW_NAME "Guardian of the Cosmos"
 
 int* nullptr = NULL;
 
@@ -103,7 +103,7 @@ void handleKeyboardInput(GLFWwindow* window)
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
 		playerRotationRate = -5.0;
 	} else if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-		playerRotationRate = 5.0;
+		playerRotationRate = 20.0;
 	} else {
 		playerRotationRate = 0.0;
 	}
@@ -179,6 +179,10 @@ int main(void)
 		0.3,	0.15,
 		0.3,	-0.15,
 	};
+	for (int i = 0; i < sizeof(enemyVert)/2/sizeof(float); i++) {
+		enemyVert[2*i] *= 0.2;
+		enemyVert[2*i + 1] *= 0.2;
+	}
 
 	unsigned int enemyInd[] = {
 		0, 1, // Middle section
@@ -207,23 +211,71 @@ int main(void)
 		24, 20,
 	};
 
-	// Temporary
-	for (int i = 0; i < sizeof(enemyInd)/sizeof(unsigned int); i++) {
-		enemyInd[i] += 3;
+	float wormholeVert[] = {
+		1.000000, 0.000000,
+		0.707107, 0.707107,
+		-0.000000, 1.000000,
+		-0.707107, 0.707107,
+		-1.000000, -0.000000,
+		-0.707107, -0.707107,
+		0.000000, -1.000000,
+		0.707107, -0.707107,
+	};
+	for (int i = 0; i < sizeof(wormholeVert)/2/sizeof(float); i++) {
+		wormholeVert[2*i] *= 0.2;
+		wormholeVert[2*i + 1] *= 0.2;
 	}
-	for (int i = 0; i < sizeof(enemyVert)/2/sizeof(float); i++) {
-		enemyVert[2*i] *= 0.2;
-		enemyVert[2*i + 1] *= 0.2;
+
+	unsigned int wormholeInd[] = {
+		0,1,2,3,4,5,6,7,
+		0,
+	};
+
+	// Setup Buffers
+	void *objectDrawData[] = {
+		&playerVert, &playerInd,
+		&enemyVert, &enemyInd,
+		&wormholeVert, &wormholeInd,
+	};
+	unsigned int objectSizeData[] = {
+		sizeof(playerVert), sizeof(playerInd),
+		sizeof(enemyVert), sizeof(enemyInd),
+		sizeof(wormholeVert), sizeof(wormholeInd),
+	};
+	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
+	if (sizeof(objectDrawData)/sizeof(void*) != sizeof(objectSizeData)/sizeof(unsigned int)) {
+		printf("Error: objectDrawData and objectSizeData must be same size\n");
+		exit(-1);
+	}
+	unsigned int vertOffsets[numObjects];
+	unsigned int indOffsets[numObjects];
+	vertOffsets[0] = 0;
+	indOffsets[0] = 0;
+	for (int i = 1; i < numObjects; i++) {
+		vertOffsets[i] = vertOffsets[i-1] + objectSizeData[i*2-2];
+		indOffsets[i] = indOffsets[i-1] + objectSizeData[i*2-1];
+	}
+
+	for (int object = 1; object < numObjects; object++) {
+		unsigned int* indPointer = objectDrawData[object*2 + 1];
+		for (int i = 0; i < objectSizeData[object*2 + 1]/sizeof(unsigned int); i++) {
+			indPointer[i] += vertOffsets[object]/sizeof(float)/2;
+		}
 	}
 
 	// Generate and Bind Vertex Buffer
-	unsigned int buffer;
-	glGenBuffers(1, &buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	unsigned int vbo;
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	// GL_STATIC_DRAW means vertices will be written once and read many times
-	glBufferData(GL_ARRAY_BUFFER, sizeof(playerVert) + sizeof(enemyVert), 0, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(playerVert), playerVert);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(playerVert), sizeof(enemyVert), enemyVert);
+	unsigned int VBOsize = 0;
+	for (int i = 0; i < numObjects; i++) {
+		VBOsize += objectSizeData[i*2];
+	}
+	glBufferData(GL_ARRAY_BUFFER, VBOsize, 0, GL_STATIC_DRAW);
+	for (int i = 0; i < numObjects; i++) {
+		glBufferSubData(GL_ARRAY_BUFFER, vertOffsets[i], objectSizeData[i*2], objectDrawData[i*2]);
+	}
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, 0);
@@ -232,9 +284,15 @@ int main(void)
 	unsigned int ibo; // Index Buffer Object
 	glGenBuffers(1, &ibo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerInd) + sizeof(enemyInd), 0, GL_STATIC_DRAW);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(playerInd), playerInd);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(playerInd), sizeof(enemyInd), enemyInd);
+	// GL_STATIC_DRAW
+	unsigned int IBOsize = 0;
+	for (int i = 0; i < numObjects; i++) {
+		IBOsize += objectSizeData[i*2 + 1];
+	}
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, IBOsize, 0, GL_STATIC_DRAW);
+	for (int i = 0; i < numObjects; i++) {
+		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indOffsets[i], objectSizeData[i*2 + 1], objectDrawData[i*2 + 1]);
+	}
 
 	// Read shader code from files
 	unsigned int shader = createShaderFromFiles("vertex.shader", "fragment.shader");
@@ -263,15 +321,16 @@ int main(void)
 	double minFPS = 1000000;
 	double avgFPS = 0;
 	int frameCount = 0;
-	// Main Loop
 
+	// Main Loop
 	while (!glfwWindowShouldClose(window)) {
 
 		// Render
 		glClear(GL_COLOR_BUFFER_BIT);
 
-//		glDrawElements(GL_LINE_LOOP, sizeof(playerInd)/sizeof(unsigned int), GL_UNSIGNED_INT, 0);
-		glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(12), 15000);
+		glDrawElements(GL_LINE_LOOP, sizeof(playerInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[0]));
+		glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[1]), 6);
+		glDrawElements(GL_LINE_STRIP, sizeof(wormholeInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[2]));
 
 		// Swap front and back buffers
 		glfwSwapBuffers(window);
@@ -284,7 +343,7 @@ int main(void)
 		minFPS = (fps < minFPS) ? fps : minFPS;
 		avgFPS = (avgFPS*frameCount + fps)/(frameCount+1);
 		frameCount++;
-		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
+//		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
 		if (frameCount >= 10) {
 			frameCount = 0;
 			avgFPS = 0;

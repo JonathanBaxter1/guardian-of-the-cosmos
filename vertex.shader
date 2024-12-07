@@ -7,5 +7,5 @@ uniform mat4 rotationMatrix;
 void main()
 {
 	gl_Position = rotationMatrix*position;
-	gl_Position[0] += (gl_InstanceID%160)/100.0 - 1.0;
+	gl_Position[0] += gl_InstanceID*0.15;
 };
