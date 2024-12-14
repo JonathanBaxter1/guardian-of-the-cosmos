@@ -313,8 +313,18 @@ int main(void)
 		0.0, 0.0, 1.0, 0.0,
 		0.0, 0.0, 0.0, 1.0,
 	};
+	float enemyLocations[24] = {
+		-0.5, -0.5, 0.0, 0.0,
+		0.5, 0.0, 0.0, 0.0,
+		0.5, 0.5, 0.0, 0.0,
+		0.0, 0.5, 0.0, 0.0,
+		-0.5, 0.5, 0.0, 0.0,
+		-0.5, 0.0, 0.0, 0.0,
+	};
 	int rotationLocation = glGetUniformLocation(shader, "rotationMatrix");
 	glUniformMatrix4fv(rotationLocation, 1, GL_FALSE, rotationMatrix);
+	int enemyLocation = glGetUniformLocation(shader, "enemyLocations");
+	glUniform4fv(enemyLocation, 6, enemyLocations);
 
 	double lastTime = glfwGetTime();
 	double maxFPS = 0;
@@ -343,7 +353,7 @@ int main(void)
 		minFPS = (fps < minFPS) ? fps : minFPS;
 		avgFPS = (avgFPS*frameCount + fps)/(frameCount+1);
 		frameCount++;
-//		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
+		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
 		if (frameCount >= 10) {
 			frameCount = 0;
 			avgFPS = 0;
