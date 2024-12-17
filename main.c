@@ -14,6 +14,8 @@
 
 int* nullptr = NULL;
 
+float playerX = 0.0;
+float playerY = 0.0;
 double playerRotationRate = 0.0;
 
 
@@ -100,14 +102,42 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
 	}
 }
 
-void handleKeyboardInput(GLFWwindow* window)
+void handleKeyboardInput(GLFWwindow* window, float playerSpeed, float playerAngle)
 {
+	playerRotationRate = 0.0;
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
 		playerRotationRate = -5.0;
-	} else if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+	}
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
 		playerRotationRate = 5.0;
-	} else {
-		playerRotationRate = 0.0;
+	}
+/*	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		playerY += playerSpeed;
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		playerY -= playerSpeed;
+	}
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		playerX += playerSpeed;
+	}
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		playerX -= playerSpeed;
+	}*/
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+		playerY += playerSpeed*cos(playerAngle);
+		playerX += playerSpeed*sin(playerAngle);
+	}
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+		playerY -= playerSpeed*cos(playerAngle);
+		playerX -= playerSpeed*sin(playerAngle);
+	}
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+		playerY -= playerSpeed*sin(playerAngle);
+		playerX += playerSpeed*cos(playerAngle);
+	}
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+		playerY += playerSpeed*sin(playerAngle);
+		playerX -= playerSpeed*cos(playerAngle);
 	}
 }
 
@@ -357,6 +387,9 @@ int main(void)
 	int enemyLocation = glGetUniformLocation(shader, "enemyLocations");
 	glUniform4fv(enemyLocation, NUM_ENEMIES, enemyLocations);
 
+	int playerLocation = glGetUniformLocation(shader, "playerLocation");
+	glUniform2f(playerLocation, playerX, playerY);
+
 	int matrixLocation = glGetUniformLocation(shader, "matrices");
 	glUniformMatrix4fv(matrixLocation, NUM_ENEMIES, GL_FALSE, enemyRotationMatrices);
 
@@ -399,7 +432,8 @@ int main(void)
 
 		// Poll for and process events
 		glfwPollEvents();
-		handleKeyboardInput(window);
+		float playerSpeed = 1.2*deltaT;
+		handleKeyboardInput(window, playerSpeed, playerAngle);
 
 		// Calculate Movement based on deltaT
 
@@ -426,9 +460,6 @@ int main(void)
 
 		// Wormhole Rotation
 		wormholeAngle += 20.0*deltaT;
-//		if (wormholeAngle >= 2*PI) {
-//			wormholeAngle -= 2*PI;
-//		};
 		wormholeRotationMatrix[0] = cos(wormholeAngle);
 		wormholeRotationMatrix[1] = -sin(wormholeAngle);
 		wormholeRotationMatrix[4] = sin(wormholeAngle);
@@ -436,6 +467,7 @@ int main(void)
 
 		// Update Matrices
 		updateEnemyMatrices(enemyLocations, enemyRotationMatrices);
+		glUniform2f(playerLocation, playerX, playerY);
 		glUniformMatrix4fv(rotationLocation, 1, GL_FALSE, rotationMatrix);
 		glUniform4fv(enemyLocation, NUM_ENEMIES, enemyLocations);
 		glUniformMatrix4fv(matrixLocation, NUM_ENEMIES, GL_FALSE, enemyRotationMatrices);
