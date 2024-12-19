@@ -6,8 +6,8 @@
 #include <alloca.h>
 
 #define PI 3.14159265358979323846
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 800
+#define SCREEN_WIDTH 1920
+#define SCREEN_HEIGHT 1080
 #define WINDOW_NAME "Guardian of the Cosmos"
 
 #define NUM_ENEMIES 6
@@ -98,7 +98,8 @@ static unsigned int createShaderFromFiles(char* vertexFileName, char* fragmentFi
 void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-		// menu maybe
+		// menu maybe?
+		exit(0);
 	}
 }
 
@@ -111,18 +112,6 @@ void handleKeyboardInput(GLFWwindow* window, float playerSpeed, float playerAngl
 	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
 		playerRotationRate = 5.0;
 	}
-/*	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		playerY += playerSpeed;
-	}
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		playerY -= playerSpeed;
-	}
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-		playerX += playerSpeed;
-	}
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-		playerX -= playerSpeed;
-	}*/
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
 		playerY += playerSpeed*cos(playerAngle);
 		playerX += playerSpeed*sin(playerAngle);
@@ -164,8 +153,15 @@ int main(void)
 		return -1;
 	}
 
-	// Create a windowed mode window and its OpenGL context
-	window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_NAME, NULL, NULL);
+	// Create a fullscreen window and its OpenGL context
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	const GLFWvidmode* videoMode = glfwGetVideoMode(monitor);
+	int screenWidth = videoMode->width;
+	int screenHeight = videoMode->height;
+	float aspectRatio = (float)screenWidth/(float)screenHeight;
+	printf("Screen Resolution: %dx%d\n", screenWidth, screenHeight);
+	printf("Aspect Ratio: %f\n", aspectRatio);
+	window = glfwCreateWindow(screenWidth, screenHeight, WINDOW_NAME, monitor, NULL);
 	if (!window) {
 		glfwTerminate();
 		return -1;
@@ -175,7 +171,7 @@ int main(void)
 	glfwMakeContextCurrent(window);
 
 	// Cut off vsync
-	glfwSwapInterval(0);
+	glfwSwapInterval(1);
 
 	// Keyboard input
 	glfwSetKeyCallback(window, keyboardCallback);
@@ -394,6 +390,9 @@ int main(void)
 	int wormholeMatrixLocation = glGetUniformLocation(shader, "wormholeRotationMatrix");
 	glUniformMatrix4fv(wormholeMatrixLocation, 1, GL_FALSE, wormholeRotationMatrix);
 
+	int aspectRatioLocation = glGetUniformLocation(shader, "aspectRatio");
+	glUniform1f(aspectRatioLocation, aspectRatio);
+
 	double lastTime = glfwGetTime();
 	double maxFPS = 0;
 	double minFPS = 1000000;
@@ -421,7 +420,7 @@ int main(void)
 		minFPS = (fps < minFPS) ? fps : minFPS;
 		avgFPS = (avgFPS*frameCount + fps)/(frameCount+1);
 		frameCount++;
-		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
+//		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
 		if (frameCount >= 10) {
 			frameCount = 0;
 			avgFPS = 0;

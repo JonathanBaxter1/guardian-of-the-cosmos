@@ -7,6 +7,7 @@ uniform vec2 playerLocation;
 uniform mat4 rotationMatrix;
 uniform mat4 wormholeRotationMatrix;
 uniform mat4 matrices[6];
+uniform float aspectRatio;
 
 void main()
 {
@@ -22,4 +23,5 @@ void main()
 		gl_Position[0] -= playerLocation[0];
 		gl_Position[1] -= playerLocation[1];
 	}
+	gl_Position[0] *= 1.0/aspectRatio;
 };
