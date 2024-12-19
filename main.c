@@ -95,16 +95,15 @@ static unsigned int createShaderFromFiles(char* vertexFileName, char* fragmentFi
 	return shader;
 }
 
-void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-		// menu maybe?
-		exit(0);
-	}
-}
-
 void handleKeyboardInput(GLFWwindow* window, float playerSpeed, float playerAngle)
 {
+	/* Escape to Quit Game */
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+		exit(0);
+	}
+
+	/* Player Movement */
+
 	playerRotationRate = 0.0;
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
 		playerRotationRate = -5.0;
@@ -112,21 +111,31 @@ void handleKeyboardInput(GLFWwindow* window, float playerSpeed, float playerAngl
 	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
 		playerRotationRate = 5.0;
 	}
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-		playerY += playerSpeed*cos(playerAngle);
-		playerX += playerSpeed*sin(playerAngle);
+	int wPressed = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
+	int aPressed = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
+	int sPressed = glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS;
+	int dPressed = glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS;
+
+	// Detect if moving on X and Y axis at the same time
+	float speedMultiplier = 1.0;
+	if (wPressed != sPressed && aPressed != dPressed) {
+		speedMultiplier = sqrt(2.0)/2.0;
 	}
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-		playerY -= playerSpeed*cos(playerAngle);
-		playerX -= playerSpeed*sin(playerAngle);
+	if (wPressed) {
+		playerY += speedMultiplier*playerSpeed*cos(playerAngle);
+		playerX += speedMultiplier*playerSpeed*sin(playerAngle);
 	}
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-		playerY -= playerSpeed*sin(playerAngle);
-		playerX += playerSpeed*cos(playerAngle);
+	if (aPressed) {
+		playerY += speedMultiplier*playerSpeed*sin(playerAngle);
+		playerX -= speedMultiplier*playerSpeed*cos(playerAngle);
 	}
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-		playerY += playerSpeed*sin(playerAngle);
-		playerX -= playerSpeed*cos(playerAngle);
+	if (sPressed) {
+		playerY -= speedMultiplier*playerSpeed*cos(playerAngle);
+		playerX -= speedMultiplier*playerSpeed*sin(playerAngle);
+	}
+	if (dPressed) {
+		playerY -= speedMultiplier*playerSpeed*sin(playerAngle);
+		playerX += speedMultiplier*playerSpeed*cos(playerAngle);
 	}
 }
 
@@ -140,6 +149,16 @@ int updateEnemyMatrices(float enemyLocations[], float *enemyRotationMatrices)
 		enemyRotationMatrices[i*16 + 1] = -sinAngle;
 		enemyRotationMatrices[i*16 + 4] = sinAngle;
 		enemyRotationMatrices[i*16 + 5] = cosAngle;
+	}
+	return 0;
+}
+
+int createCircleVertices(float *circleVertices, float type, int numSides) {
+	for (int i = 0; i < numSides; i++) {
+		double angle = (float)i/numSides*2*PI;
+		circleVertices[i*3] = cos(angle);
+		circleVertices[i*3 + 1] = sin(angle);
+		circleVertices[i*3 + 2] = type;
 	}
 	return 0;
 }
@@ -170,11 +189,10 @@ int main(void)
 	// Make the window's context current
 	glfwMakeContextCurrent(window);
 
-	// Cut off vsync
+	// Turn on vsync
 	glfwSwapInterval(1);
 
 	// Keyboard input
-	glfwSetKeyCallback(window, keyboardCallback);
 
 	glewInit();
 
@@ -251,7 +269,7 @@ int main(void)
 		24, 20,
 	};
 
-	float wormholeVert[] = {
+/*	float wormholeVert[] = {
 		1.000000, 0.000000, 0.2,
 		0.707107, 0.707107, 0.2,
 		-0.000000, 1.000000, 0.2,
@@ -260,7 +278,10 @@ int main(void)
 		-0.707107, -0.707107, 0.2,
 		0.000000, -1.000000, 0.2,
 		0.707107, -0.707107, 0.2,
-	};
+	};*/
+	float wormholeVert[8*3];
+	createCircleVertices(wormholeVert, 0.2, 8);
+
 	for (int i = 0; i < sizeof(wormholeVert)/3/sizeof(float); i++) {
 		wormholeVert[3*i] *= 0.2;
 		wormholeVert[3*i + 1] *= 0.2;
@@ -398,6 +419,14 @@ int main(void)
 	double minFPS = 1000000;
 	double avgFPS = 0;
 	int frameCount = 0;
+
+	// Enable Anti-Aliasing
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
+	glEnable(GL_LINE_SMOOTH);
+	glLineWidth(1.3);
+	glDepthMask(GL_FALSE);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
 	// Main Loop
 	while (!glfwWindowShouldClose(window)) {
