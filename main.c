@@ -180,9 +180,7 @@ int main(void)
 	// Keyboard input
 	glfwSetKeyCallback(window, keyboardCallback);
 
-	if (glewInit() != GLEW_OK) {
-		return -1;
-	}
+	glewInit();
 
 	float playerVert[] = {
 		-0.04,	-0.04, 0.0,
