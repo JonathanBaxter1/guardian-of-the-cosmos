@@ -10,7 +10,10 @@
 #define SCREEN_HEIGHT 1080
 #define WINDOW_NAME "Guardian of the Cosmos"
 
-#define NUM_ENEMIES 6
+#define NUM_ENEMIES 6 // also change in vertex shader
+#define NUM_WORMHOLES 3 // also change in vertex shader
+#define BOUNDARY_SIDES 256
+#define BOUNDARY_RADIUS 5.0
 
 int* nullptr = NULL;
 
@@ -153,12 +156,13 @@ int updateEnemyMatrices(float enemyLocations[], float *enemyRotationMatrices)
 	return 0;
 }
 
-int createCircleVertices(float *circleVertices, float type, int numSides) {
+int createCircle(float *circleVertices, unsigned int *circleIndices, float type, int numSides) {
 	for (int i = 0; i < numSides; i++) {
 		double angle = (float)i/numSides*2*PI;
 		circleVertices[i*3] = cos(angle);
 		circleVertices[i*3 + 1] = sin(angle);
 		circleVertices[i*3 + 2] = type;
+		circleIndices[i] = i;
 	}
 	return 0;
 }
@@ -269,39 +273,38 @@ int main(void)
 		24, 20,
 	};
 
-/*	float wormholeVert[] = {
-		1.000000, 0.000000, 0.2,
-		0.707107, 0.707107, 0.2,
-		-0.000000, 1.000000, 0.2,
-		-0.707107, 0.707107, 0.2,
-		-1.000000, -0.000000, 0.2,
-		-0.707107, -0.707107, 0.2,
-		0.000000, -1.000000, 0.2,
-		0.707107, -0.707107, 0.2,
-	};*/
+	/* Wormhole */
 	float wormholeVert[8*3];
-	createCircleVertices(wormholeVert, 0.2, 8);
+	unsigned int wormholeInd[8];
+	createCircle(wormholeVert, wormholeInd, 0.2, 8);
 
 	for (int i = 0; i < sizeof(wormholeVert)/3/sizeof(float); i++) {
 		wormholeVert[3*i] *= 0.2;
 		wormholeVert[3*i + 1] *= 0.2;
 	}
 
-	unsigned int wormholeInd[] = {
-		0,1,2,3,4,5,6,7,
-		0,
-	};
+	/* Boundary */
+	float boundaryVert[BOUNDARY_SIDES*3];
+	unsigned int boundaryInd[BOUNDARY_SIDES];
+	createCircle(boundaryVert, boundaryInd, 0.3, BOUNDARY_SIDES);
+
+	for (int i = 0; i < BOUNDARY_SIDES; i++) {
+		boundaryVert[3*i] *= BOUNDARY_RADIUS;
+		boundaryVert[3*i + 1] *= BOUNDARY_RADIUS;
+	}
 
 	// Setup Buffers
 	void *objectDrawData[] = {
 		&playerVert, &playerInd,
 		&enemyVert, &enemyInd,
 		&wormholeVert, &wormholeInd,
+		&boundaryVert, &boundaryInd,
 	};
 	unsigned int objectSizeData[] = {
 		sizeof(playerVert), sizeof(playerInd),
 		sizeof(enemyVert), sizeof(enemyInd),
 		sizeof(wormholeVert), sizeof(wormholeInd),
+		sizeof(boundaryVert), sizeof(boundaryInd),
 	};
 	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
 	if (sizeof(objectDrawData)/sizeof(void*) != sizeof(objectSizeData)/sizeof(unsigned int)) {
@@ -382,13 +385,18 @@ int main(void)
 		0.0, 0.0, 1.0, 0.0,
 		0.0, 0.0, 0.0, 1.0,
 	};
+	float wormholeLocations[2*NUM_WORMHOLES] = {
+		-4.0, 0.2,
+		4.0, -0.2,
+		0.0, 4.3,
+	};
 	float enemyLocations[4*NUM_ENEMIES] = {
-		-0.5, -0.5, 1.0, 0.0,
-		0.5, 0.0, 2.0, 0.0,
-		0.5, 0.5, 3.0, 0.0,
-		0.0, 0.5, 4.0, 0.0,
-		-0.5, 0.5, 5.0, 0.0,
-		-0.5, 0.0, 6.0, 0.0,
+		-4.0, 0.0, 1.0, 0.0,
+		0.0, -4.0, 2.0, 0.0,
+		4.0, 0.0, 3.0, 0.0,
+		1.0, 3.0, 4.0, 0.0,
+		0.0, 4.0, 5.0, 0.0,
+		-1.0, 3.0, 6.0, 0.0,
 	};
 	float enemyRotationMatrices[16*NUM_ENEMIES] = {};
 	for (int i = 0; i < NUM_ENEMIES; i++) {
@@ -414,6 +422,9 @@ int main(void)
 	int aspectRatioLocation = glGetUniformLocation(shader, "aspectRatio");
 	glUniform1f(aspectRatioLocation, aspectRatio);
 
+	int wormholeLocation = glGetUniformLocation(shader, "wormholeLocations");
+	glUniform2fv(wormholeLocation, NUM_WORMHOLES, wormholeLocations);
+
 	double lastTime = glfwGetTime();
 	double maxFPS = 0;
 	double minFPS = 1000000;
@@ -435,8 +446,9 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glDrawElements(GL_LINE_LOOP, sizeof(playerInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[0]));
-		glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[1]), 6);
-		glDrawElements(GL_LINE_STRIP, sizeof(wormholeInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[2]));
+		glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[1]), NUM_ENEMIES);
+		glDrawElementsInstanced(GL_LINE_LOOP, sizeof(wormholeInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[2]), NUM_WORMHOLES);
+		glDrawElements(GL_LINE_LOOP, BOUNDARY_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[3]));
 
 		// Swap front and back buffers
 		glfwSwapBuffers(window);
@@ -461,6 +473,12 @@ int main(void)
 		float playerSpeed = 1.2*deltaT;
 		handleKeyboardInput(window, playerSpeed, playerAngle);
 
+		// Out of Bounds Detection
+		if ((playerX*playerX + playerY*playerY) >= BOUNDARY_RADIUS*BOUNDARY_RADIUS) {
+			printf("Out of Bounds\n");
+			exit(-1);
+		}
+
 		// Calculate Movement based on deltaT
 
 		// Square color fade
@@ -483,6 +501,32 @@ int main(void)
 		rotationMatrix[1] = -sin(playerAngle);
 		rotationMatrix[4] = sin(playerAngle);
 		rotationMatrix[5] = cos(playerAngle);
+
+		// Enemy Rotation
+		for (int i = 0; i < NUM_ENEMIES; i++) {
+			float enemySpeed = 0.5;
+			// Update Angle
+			float enemyAngle = enemyLocations[i*4 + 2];
+			float deltaX = playerX - enemyLocations[i*4];
+			float deltaY = playerY - enemyLocations[i*4 + 1];
+			enemyAngle = atan2(deltaX, deltaY);
+			enemyLocations[i*4 + 2] = enemyAngle;
+
+			// Update Position
+			int enemyOnScreen = abs(playerX - enemyLocations[i*4]) <= aspectRatio && abs(playerY - enemyLocations[i*4 + 1]) <= 1.0;
+			if (enemyOnScreen) {
+				enemyLocations[i*4] += sin(enemyAngle)*enemySpeed*deltaT; // X
+				enemyLocations[i*4 + 1] += cos(enemyAngle)*enemySpeed*deltaT; // Y
+			}
+
+			// Update Rotation Matrix
+			float sinAngle = sin(enemyAngle);
+			float cosAngle = cos(enemyAngle);
+			enemyRotationMatrices[i*16] = cosAngle;
+			enemyRotationMatrices[i*16 + 1] = -sinAngle;
+			enemyRotationMatrices[i*16 + 4] = sinAngle;
+			enemyRotationMatrices[i*16 + 5] = cosAngle;
+		}
 
 		// Wormhole Rotation
 		wormholeAngle += 20.0*deltaT;
