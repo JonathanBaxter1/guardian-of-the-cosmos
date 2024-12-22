@@ -6,7 +6,7 @@ uniform vec4 enemyLocations[6];
 uniform mat4 enemyRotationMatrices[6];
 uniform vec2 wormholeLocations[3];
 uniform vec2 playerLocation;
-uniform mat4 rotationMatrix;
+uniform mat4 playerRotationMatrix;
 uniform mat4 wormholeRotationMatrix;
 uniform float aspectRatio;
 uniform vec4 playerBulletLocations[64];
@@ -16,7 +16,7 @@ void main()
 {
 	float type = position[2];
 	if (type == 0.0) { // Player
-		gl_Position = rotationMatrix*position;
+		gl_Position = playerRotationMatrix*position;
 	} else if (type == 0.1) { // Enemy
 		gl_Position = enemyRotationMatrices[gl_InstanceID]*position;
 		gl_Position[0] += enemyLocations[gl_InstanceID][0] - playerLocation[0];
