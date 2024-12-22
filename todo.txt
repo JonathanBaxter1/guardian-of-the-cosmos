@@ -1,4 +1,4 @@
 TODO:
 
- - Make player speed constant. Now if you press W and D (or other combinations) at the same time, the player will move at sqrt(2) times normal speed
- - Add fullscreen capability
+ - Make enemies shoot
+ - Make enemies spawn out of wormholes, then make it to where you can shoot down wormholes
