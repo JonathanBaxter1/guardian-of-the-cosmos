@@ -8,16 +8,23 @@
 #define PI 3.14159265358979323846
 #define WINDOW_NAME "Guardian of the Cosmos"
 
+#define MAT_BUFFER_INDEX 2
+
 // Maximum number of each object type
 // Update the vertex shader when any of these values are changed
 #define NUM_ENEMIES 6
 #define NUM_WORMHOLES 3
 #define NUM_PLAYER_BULLETS 64
-#define NUM_ENEMY_BULLETS 2048
+#define NUM_ENEMY_BULLETS 128
 
+// How many sides in circles
 #define BOUNDARY_SIDES 256
+#define WORMHOLE_SIDES 8
+#define ENEMY_BULLET_SIDES 8
+
 #define BOUNDARY_RADIUS 5.0
-#define BULLETS_PER_SECOND 10.0
+#define PLAYER_SHOOT_RATE 10.0 // Bullets per second
+#define ENEMY_SHOOT_RATE 2.0
 #define PLAYER_HITBOX_RAD 0.04
 #define ENEMY_HITBOX_RAD 0.055
 #define PLAYER_BULLET_HITBOX_RAD 0.03
@@ -223,6 +230,22 @@ int createCircle(float *circleVertices, unsigned int *circleIndices, float type,
 	return 0;
 }
 
+int spawnBullet(float *bulletLocations, float *bulletVelocities, float *bulletRotationMatrices, int numBullets, float x, float y, float angle, float deltaT, float velocity)
+{
+	for (int i = 0; i < numBullets; i++) {
+		if (bulletLocations[i*4 + 3] == 0.0) continue;
+		bulletLocations[i*4] = playerX;
+		bulletLocations[i*4 + 1] = playerY;
+		bulletLocations[i*4 + 2] = playerAngle;
+		bulletLocations[i*4 + 3] = 0.0;
+		bulletVelocities[i*4] = velocity*sin(playerAngle)*deltaT;
+		bulletVelocities[i*4 + 1] = 4.0*cos(playerAngle)*deltaT;
+		updateRotationMatrix(playerAngle, bulletRotationMatrices + i*16);
+		break;
+	}
+	return 0;
+}
+
 int main(void)
 {
 
@@ -356,10 +379,12 @@ int main(void)
 		}
 	}
 
+	float timeSinceLastEnemyBullet[NUM_ENEMIES] = {0.0};
+
 	/* Wormhole Data */
-	float wormholeVert[8*3];
-	unsigned int wormholeInd[8];
-	createCircle(wormholeVert, wormholeInd, 0.2, 8);
+	float wormholeVert[3*WORMHOLE_SIDES];
+	unsigned int wormholeInd[WORMHOLE_SIDES];
+	createCircle(wormholeVert, wormholeInd, 0.2, WORMHOLE_SIDES);
 
 	for (int i = 0; i < sizeof(wormholeVert)/3/sizeof(float); i++) {
 		wormholeVert[3*i] *= 0.2;
@@ -381,7 +406,7 @@ int main(void)
 
 
 	/* Boundary Data */
-	float boundaryVert[BOUNDARY_SIDES*3];
+	float boundaryVert[3*BOUNDARY_SIDES];
 	unsigned int boundaryInd[BOUNDARY_SIDES];
 	createCircle(boundaryVert, boundaryInd, 0.3, BOUNDARY_SIDES);
 
@@ -422,6 +447,27 @@ int main(void)
 	}
 	float playerBulletVelocities[2*NUM_PLAYER_BULLETS] = {0.0};
 
+	/* Enemy Bullet Data */
+
+	float enemyBulletVert[4*ENEMY_BULLET_SIDES];
+	unsigned int enemyBulletInd[ENEMY_BULLET_SIDES];
+	createCircle(enemyBulletVert, enemyBulletInd, 0.5, ENEMY_BULLET_SIDES);
+
+	float enemyBulletLocations[4*NUM_ENEMY_BULLETS];
+	for (int i = 0; i < NUM_ENEMY_BULLETS; i++) {
+		enemyBulletLocations[i*4] = 0.0;
+		enemyBulletLocations[i*4 + 1] = 0.0;
+		enemyBulletLocations[i*4 + 2] = 1.0;
+		enemyBulletLocations[i*4 + 3] = -1.0;
+	}
+	float enemyBulletRotationMatrices[16*NUM_ENEMY_BULLETS] = {0.0};
+	for (int i = 0; i < NUM_ENEMY_BULLETS; i++) {
+		for (int j = 0; j < 4; j++) {
+			enemyBulletRotationMatrices[i*16 + j*5] = 1.0;
+		}
+	}
+	float enemyBulletVelocities[2*NUM_ENEMY_BULLETS] = {0.0};
+
 	// Setup Buffers
 	void *objectDrawData[] = {
 		&playerVert, &playerInd,
@@ -429,6 +475,7 @@ int main(void)
 		&wormholeVert, &wormholeInd,
 		&boundaryVert, &boundaryInd,
 		&playerBulletVert, &playerBulletInd,
+		&enemyBulletVert, &enemyBulletInd,
 	};
 	unsigned int objectSizeData[] = {
 		sizeof(playerVert), sizeof(playerInd),
@@ -436,6 +483,7 @@ int main(void)
 		sizeof(wormholeVert), sizeof(wormholeInd),
 		sizeof(boundaryVert), sizeof(boundaryInd),
 		sizeof(playerBulletVert), sizeof(playerBulletInd),
+		sizeof(enemyBulletVert), sizeof(enemyBulletInd),
 	};
 
 	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
@@ -490,6 +538,18 @@ int main(void)
 		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indOffsets[i], objectSizeData[i*2 + 1], objectDrawData[i*2 + 1]);
 	}
 
+	// Generate and Bind Rotation Matrix Buffer
+	unsigned int matBuffer;
+	glGenBuffers(1, &matBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
+	for (int i = 0; i < 4; i++) {
+		GLuint index = MAT_BUFFER_INDEX + i;
+		glEnableVertexAttribArray(index);
+		glVertexAttribPointer(index, 4, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(4*sizeof(float)*i));
+		glVertexAttribDivisor(index, 1);
+	}
+	glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
+
 	// Read shader code from files
 	unsigned int shader = createShaderFromFiles("vertex.shader", "fragment.shader");
 	glUseProgram(shader);
@@ -511,6 +571,8 @@ int main(void)
 	int wormholeLocation = glGetUniformLocation(shader, "wormholeLocations");
 	int playerBulletLocation = glGetUniformLocation(shader, "playerBulletLocations");
 	int playerBulletRotationMatrixLocation = glGetUniformLocation(shader, "playerBulletRotationMatrices");
+	int enemyBulletLocation = glGetUniformLocation(shader, "enemyBulletLocations");
+	int enemyBulletRotationMatrixLocation = glGetUniformLocation(shader, "enemyBulletRotationMatrices");
 
 	// Set Shader Variables
 	glUniformMatrix4fv(playerRotationLocation, 1, GL_FALSE, playerRotationMatrix);
@@ -522,6 +584,8 @@ int main(void)
 	glUniform2fv(wormholeLocation, NUM_WORMHOLES, wormholeLocations);
 	glUniform4fv(playerBulletLocation, NUM_PLAYER_BULLETS, playerBulletLocations);
 	glUniformMatrix4fv(playerBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, playerBulletRotationMatrices);
+	glUniform4fv(enemyBulletLocation, NUM_ENEMY_BULLETS, enemyBulletLocations);
+	glUniformMatrix4fv(enemyBulletRotationMatrixLocation, NUM_ENEMY_BULLETS, GL_FALSE, enemyBulletRotationMatrices);
 
 	double lastTime = glfwGetTime();
 	double maxFPS = 0;
@@ -580,7 +644,7 @@ int main(void)
 		};
 		updateRotationMatrix(playerAngle, playerRotationMatrix);
 
-		/* Enemy Movement and Rotation */
+		/* Enemy Movement, Rotation and Shooting */
 		for (int i = 0; i < NUM_ENEMIES; i++) {
 			if (enemyLocations[i*4 + 3] == -1.0) continue;
 			float enemySpeed = 0.5;
@@ -591,20 +655,27 @@ int main(void)
 			enemyAngle = atan2(deltaX, deltaY);
 			enemyLocations[i*4 + 2] = enemyAngle;
 
-			// Update Position
+			// Update position and shoot if on screen
 			int enemyOnScreen = abs(playerX - enemyLocations[i*4]) <= aspectRatio && abs(playerY - enemyLocations[i*4 + 1]) <= 1.0;
 			if (enemyOnScreen) {
+				// Update Position
 				enemyLocations[i*4] += sin(enemyAngle)*enemySpeed*deltaT; // X
 				enemyLocations[i*4 + 1] += cos(enemyAngle)*enemySpeed*deltaT; // Y
+
+				// Shoot
+				timeSinceLastEnemyBullet[i] += deltaT;
+				if (timeSinceLastBullet >= 1.0/ENEMY_SHOOT_RATE) {
+					timeSinceLastBullet -= 1.0/ENEMY_SHOOT_RATE;
+				}
 			}
 
 			// Collision with Player
 			float disFromPlayer = sqrt(deltaX*deltaX + deltaY*deltaY);
 			if (disFromPlayer < PLAYER_HITBOX_RAD + ENEMY_HITBOX_RAD) {
 				enemyLocations[i*4 + 3] = -1.0;
+				enemyHealth[i] = 0.0;
 				playerHealth -= 0.5;
 			}
-
 		}
 		updateRotationMatrices(enemyLocations, enemyRotationMatrices, NUM_ENEMIES);
 
@@ -626,9 +697,10 @@ int main(void)
 		if (isShooting) {
 			timeSinceLastBullet += deltaT;
 		}
-		if (timeSinceLastBullet >= 1.0/BULLETS_PER_SECOND) {
-			timeSinceLastBullet -= 1.0/BULLETS_PER_SECOND;
-			for (int i = 0; i < NUM_PLAYER_BULLETS; i++) {
+		if (timeSinceLastBullet >= 1.0/PLAYER_SHOOT_RATE) {
+			timeSinceLastBullet -= 1.0/PLAYER_SHOOT_RATE;
+			spawnBullet(playerBulletLocations, playerBulletVelocities, playerBulletRotationMatrices, NUM_PLAYER_BULLETS, playerX, playerY, playerAngle, deltaT, 4.0);
+/*			for (int i = 0; i < NUM_PLAYER_BULLETS; i++) {
 				if (playerBulletLocations[i*4 + 3] == 0.0) continue;
 				playerBulletLocations[i*4] = playerX;
 				playerBulletLocations[i*4 + 1] = playerY;
@@ -638,7 +710,7 @@ int main(void)
 				playerBulletVelocities[i*4 + 1] = 4.0*cos(playerAngle)*deltaT;
 				updateRotationMatrix(playerAngle, playerBulletRotationMatrices + i*16);
 				break;
-			}
+			}*/
 		}
 
 		// Move Bullets
@@ -659,6 +731,10 @@ int main(void)
 		glUniformMatrix4fv(wormholeMatrixLocation, 1, GL_FALSE, wormholeRotationMatrix);
 		glUniform4fv(playerBulletLocation, NUM_PLAYER_BULLETS, playerBulletLocations);
 		glUniformMatrix4fv(playerBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, playerBulletRotationMatrices);
+
+		glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
+		glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
+
 
 		/* Collision Detection */
 
@@ -696,7 +772,7 @@ int main(void)
 		}
 		int youWin = 1;
 		for (int enemy = 0; enemy <= NUM_ENEMIES; enemy++) {
-			if (enemyHealth[enemy] > 0.0) youWin = 0;
+			if (enemyHealth[enemy] > 0.0 && enemyLocations[enemy*4 + 3] == 0.0) youWin = 0;
 		}
 		if (youWin) {
 			printf("You Win!\n");
