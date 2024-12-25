@@ -28,6 +28,7 @@
 #define PLAYER_HITBOX_RAD 0.04
 #define ENEMY_HITBOX_RAD 0.055
 #define PLAYER_BULLET_HITBOX_RAD 0.03
+#define ENEMY_BULLET_RAD 0.005
 
 #define Render() do {\
 	/* Set background to black */\
@@ -39,6 +40,7 @@
 	glDrawElementsInstanced(GL_LINE_LOOP, sizeof(wormholeInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[2]), NUM_WORMHOLES); \
 	glDrawElements(GL_LINE_LOOP, BOUNDARY_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[3])); \
 	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS); \
+	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS); \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
@@ -46,6 +48,7 @@
 
 GLFWwindow* window;
 int* nullptr = NULL;
+float aspectRatio = 1.0;
 
 float playerX = 0.0;
 float playerY = 0.0;
@@ -234,16 +237,23 @@ int spawnBullet(float *bulletLocations, float *bulletVelocities, float *bulletRo
 {
 	for (int i = 0; i < numBullets; i++) {
 		if (bulletLocations[i*4 + 3] == 0.0) continue;
-		bulletLocations[i*4] = playerX;
-		bulletLocations[i*4 + 1] = playerY;
-		bulletLocations[i*4 + 2] = playerAngle;
+		bulletLocations[i*4] = x;
+		bulletLocations[i*4 + 1] = y;
+		bulletLocations[i*4 + 2] = angle;
 		bulletLocations[i*4 + 3] = 0.0;
-		bulletVelocities[i*4] = velocity*sin(playerAngle)*deltaT;
-		bulletVelocities[i*4 + 1] = 4.0*cos(playerAngle)*deltaT;
+		bulletVelocities[i*4] = velocity*sin(angle)*deltaT;
+		bulletVelocities[i*4 + 1] = velocity*cos(angle)*deltaT;
 		updateRotationMatrix(playerAngle, bulletRotationMatrices + i*16);
 		break;
 	}
 	return 0;
+}
+
+int isOnScreen(float x, float y)
+{
+	float deltaX = x - playerX;
+	float deltaY = y - playerY;
+	return deltaX >= -aspectRatio*1.0 && deltaX <= aspectRatio*1.0 && deltaY >= -1.0 && deltaY <= 1.0;
 }
 
 int main(void)
@@ -259,7 +269,7 @@ int main(void)
 	const GLFWvidmode* videoMode = glfwGetVideoMode(monitor);
 	int screenWidth = videoMode->width;
 	int screenHeight = videoMode->height;
-	float aspectRatio = (float)screenWidth/(float)screenHeight;
+	aspectRatio = (float)screenWidth/(float)screenHeight;
 	printf("Screen Resolution: %dx%d\n", screenWidth, screenHeight);
 	printf("Aspect Ratio: %f\n", aspectRatio);
 	window = glfwCreateWindow(screenWidth, screenHeight, WINDOW_NAME, monitor, NULL);
@@ -386,7 +396,7 @@ int main(void)
 	unsigned int wormholeInd[WORMHOLE_SIDES];
 	createCircle(wormholeVert, wormholeInd, 0.2, WORMHOLE_SIDES);
 
-	for (int i = 0; i < sizeof(wormholeVert)/3/sizeof(float); i++) {
+	for (int i = 0; i < WORMHOLE_SIDES; i++) {
 		wormholeVert[3*i] *= 0.2;
 		wormholeVert[3*i + 1] *= 0.2;
 	}
@@ -452,6 +462,11 @@ int main(void)
 	float enemyBulletVert[4*ENEMY_BULLET_SIDES];
 	unsigned int enemyBulletInd[ENEMY_BULLET_SIDES];
 	createCircle(enemyBulletVert, enemyBulletInd, 0.5, ENEMY_BULLET_SIDES);
+
+	for (int i = 0; i < ENEMY_BULLET_SIDES; i++) {
+		enemyBulletVert[3*i] *= ENEMY_BULLET_RAD;
+		enemyBulletVert[3*i + 1] *= ENEMY_BULLET_RAD;
+	}
 
 	float enemyBulletLocations[4*NUM_ENEMY_BULLETS];
 	for (int i = 0; i < NUM_ENEMY_BULLETS; i++) {
@@ -668,14 +683,6 @@ int main(void)
 					timeSinceLastBullet -= 1.0/ENEMY_SHOOT_RATE;
 				}
 			}
-
-			// Collision with Player
-			float disFromPlayer = sqrt(deltaX*deltaX + deltaY*deltaY);
-			if (disFromPlayer < PLAYER_HITBOX_RAD + ENEMY_HITBOX_RAD) {
-				enemyLocations[i*4 + 3] = -1.0;
-				enemyHealth[i] = 0.0;
-				playerHealth -= 0.5;
-			}
 		}
 		updateRotationMatrices(enemyLocations, enemyRotationMatrices, NUM_ENEMIES);
 
@@ -685,10 +692,7 @@ int main(void)
 		for (int i = 0; i < NUM_PLAYER_BULLETS; i++) {
 			float bulletX = playerBulletLocations[i*4];
 			float bulletY = playerBulletLocations[i*4 + 1];
-			float deltaX = bulletX - playerX;
-			float deltaY = bulletY - playerY;
-			int bulletOutOfBounds = deltaX < -aspectRatio*1.0 || deltaX > aspectRatio*1.0 || deltaY < -1.0 || deltaY > 1.0;
-			if (bulletOutOfBounds) {
+			if (!isOnScreen(bulletX, bulletY)) {
 				playerBulletLocations[i*4 + 3] = -1.0;
 			}
 		}
@@ -700,23 +704,46 @@ int main(void)
 		if (timeSinceLastBullet >= 1.0/PLAYER_SHOOT_RATE) {
 			timeSinceLastBullet -= 1.0/PLAYER_SHOOT_RATE;
 			spawnBullet(playerBulletLocations, playerBulletVelocities, playerBulletRotationMatrices, NUM_PLAYER_BULLETS, playerX, playerY, playerAngle, deltaT, 4.0);
-/*			for (int i = 0; i < NUM_PLAYER_BULLETS; i++) {
-				if (playerBulletLocations[i*4 + 3] == 0.0) continue;
-				playerBulletLocations[i*4] = playerX;
-				playerBulletLocations[i*4 + 1] = playerY;
-				playerBulletLocations[i*4 + 2] = playerAngle;
-				playerBulletLocations[i*4 + 3] = 0.0;
-				playerBulletVelocities[i*4] = 4.0*sin(playerAngle)*deltaT;
-				playerBulletVelocities[i*4 + 1] = 4.0*cos(playerAngle)*deltaT;
-				updateRotationMatrix(playerAngle, playerBulletRotationMatrices + i*16);
-				break;
-			}*/
 		}
 
 		// Move Bullets
 		for (int i = 0; i < NUM_PLAYER_BULLETS; i++) {
 			playerBulletLocations[i*4] += playerBulletVelocities[i*4];
 			playerBulletLocations[i*4 + 1] += playerBulletVelocities[i*4 + 1];
+		}
+
+		/* Enemy Bullet Movement */
+
+		// Check if each bullet is out of bounds
+		for (int i = 0; i < NUM_ENEMY_BULLETS; i++) {
+			float bulletX = enemyBulletLocations[i*4];
+			float bulletY = enemyBulletLocations[i*4 + 1];
+			if (!isOnScreen(bulletX, bulletY)) {
+				enemyBulletLocations[i*4 + 3] = -1.0;
+			}
+		}
+
+		// Add new bullet
+		for (int i = 0; i < NUM_ENEMIES; i++) {
+			if (enemyLocations[i*4 +3] == -1.0) continue;
+			float enemyX = enemyLocations[i*4];
+			float enemyY = enemyLocations[i*4 + 1];
+			float enemyAngle = enemyLocations[i*4 + 2];
+			if (isOnScreen(enemyX, enemyY)) {
+				timeSinceLastEnemyBullet[i] += deltaT;
+			}
+
+			if (timeSinceLastEnemyBullet[i] >= 1.0/ENEMY_SHOOT_RATE) {
+				timeSinceLastEnemyBullet[i] -= 1.0/ENEMY_SHOOT_RATE;
+				spawnBullet(enemyBulletLocations, enemyBulletVelocities, enemyBulletRotationMatrices, NUM_ENEMY_BULLETS, enemyX, enemyY, enemyAngle, deltaT, 1.0);
+			}
+		}
+
+
+		// Move Bullets
+		for (int i = 0; i < NUM_ENEMY_BULLETS; i++) {
+			enemyBulletLocations[i*4] += enemyBulletVelocities[i*4];
+			enemyBulletLocations[i*4 + 1] += enemyBulletVelocities[i*4 + 1];
 		}
 
 		/* Wormhole Rotation */
@@ -731,6 +758,8 @@ int main(void)
 		glUniformMatrix4fv(wormholeMatrixLocation, 1, GL_FALSE, wormholeRotationMatrix);
 		glUniform4fv(playerBulletLocation, NUM_PLAYER_BULLETS, playerBulletLocations);
 		glUniformMatrix4fv(playerBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, playerBulletRotationMatrices);
+		glUniform4fv(enemyBulletLocation, NUM_PLAYER_BULLETS, enemyBulletLocations);
+		glUniformMatrix4fv(enemyBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, enemyBulletRotationMatrices);
 
 		glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
 		glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
@@ -744,13 +773,24 @@ int main(void)
 			exit(-1);
 		}
 
-		// Enemy and Player Bullet
+		// Enemy and Player / Player Bullet
 		for (int enemy = 0; enemy < NUM_ENEMIES; enemy++) {
 			if (enemyLocations[enemy*4 + 3] == -1.0) continue;
 			float enemyX = enemyLocations[enemy*4];
 			float enemyY = enemyLocations[enemy*4 + 1];
+			float deltaX = enemyX - playerX;
+			float deltaY = enemyY - playerY;
+
+			// Collision with Player
+			float disFromPlayer = sqrt(deltaX*deltaX + deltaY*deltaY);
+			if (disFromPlayer <= PLAYER_HITBOX_RAD + ENEMY_HITBOX_RAD) {
+				enemyLocations[enemy*4 + 3] = -1.0;
+				enemyHealth[enemy] = 0.0;
+				playerHealth -= 0.5;
+			}
+
 			for (int bullet = 0; bullet < NUM_PLAYER_BULLETS; bullet++) {
-				if (playerBulletLocations[bullet*4 +3] == -1.0) continue;
+				if (playerBulletLocations[bullet*4 + 3] == -1.0) continue;
 				float bulletX = playerBulletLocations[bullet*4];
 				float bulletY = playerBulletLocations[bullet*4 + 1];
 				float deltaX = enemyX - bulletX;
@@ -758,10 +798,25 @@ int main(void)
 				int isCollide = sqrt(deltaX*deltaX + deltaY*deltaY) <= ENEMY_HITBOX_RAD + PLAYER_BULLET_HITBOX_RAD;
 				if (isCollide) {
 					enemyHealth[enemy] -= 0.1;
+					playerBulletLocations[bullet*4 + 3] = -1.0;
 				}
 			}
 			if (enemyHealth[enemy] <= 0.0) {
 				enemyLocations[enemy*4 + 3] = -1.0;
+			}
+		}
+
+		// Player and Enemy Bullet
+		for (int bullet = 0; bullet < NUM_ENEMY_BULLETS; bullet++) {
+			if (enemyBulletLocations[bullet*4 + 3] == -1.0) continue;
+			float bulletX = enemyBulletLocations[bullet*4];
+			float bulletY = enemyBulletLocations[bullet*4 + 1];
+			float deltaX = playerX - bulletX;
+			float deltaY = playerY - bulletY;
+			int isCollide = sqrt(deltaX*deltaX + deltaY*deltaY) <= PLAYER_HITBOX_RAD + ENEMY_BULLET_RAD;
+			if (isCollide) {
+				playerHealth -= 0.25;
+				enemyBulletLocations[bullet*4 + 3] = -1.0;
 			}
 		}
 
