@@ -9,6 +9,7 @@
 #define WINDOW_NAME "Guardian of the Cosmos"
 
 #define MAT_BUFFER_INDEX 2
+#define VSYNC_ON 1
 
 // Maximum number of each object type
 // Update the vertex shader when any of these values are changed
@@ -281,8 +282,8 @@ int main(void)
 	// Make the window's context current
 	glfwMakeContextCurrent(window);
 
-	// Turn on vsync
-	glfwSwapInterval(1);
+	// Turn on/off vsync
+	glfwSwapInterval(VSYNC_ON);
 
 	// Initialize glew
 	glewInit();
@@ -631,7 +632,7 @@ int main(void)
 		minFPS = (fps < minFPS) ? fps : minFPS;
 		avgFPS = (avgFPS*frameCount + fps)/(frameCount+1);
 		frameCount++;
-//		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
+		printf("FPS: %.0f, MIN: %f, MAX: %F\n", avgFPS, minFPS, maxFPS);
 		if (frameCount >= 10) {
 			frameCount = 0;
 			avgFPS = 0;
