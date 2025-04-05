@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <alloca.h>
@@ -17,7 +18,7 @@
 #define NUM_WORMHOLES 3
 #define NUM_PLAYER_BULLETS 64
 #define NUM_ENEMY_BULLETS 128
-#define NUM_ASTEROIDS 1024
+#define NUM_ASTEROIDS 256
 
 // How many sides in circles
 #define BOUNDARY_SIDES 256
@@ -44,7 +45,7 @@
 	glDrawElements(GL_LINE_LOOP, BOUNDARY_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[3])); \
 	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS); \
 	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS); \
-	glDrawElements(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6])); \
+	glDrawElementsInstanced(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6]), NUM_ASTEROIDS); \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
@@ -262,6 +263,8 @@ int isOnScreen(float x, float y)
 
 int main(void)
 {
+
+	srand(time(NULL));
 
 	// Initialize glfw
 	if (!glfwInit()) {
@@ -503,6 +506,15 @@ int main(void)
 		0, 1, 2, 3, 4, 5, 6, 7,
 	};
 
+	float asteroidLocations[2*NUM_ASTEROIDS];
+	for (int i = 0; i < NUM_ASTEROIDS; i++) {
+		float asteroidDistance = ((float)rand())/RAND_MAX;
+		asteroidDistance = sqrt(asteroidDistance)*BOUNDARY_RADIUS;
+		float asteroidAngle = ((float)rand())/RAND_MAX*2*PI;
+		asteroidLocations[i*2] = asteroidDistance*sin(asteroidAngle);
+		asteroidLocations[i*2 + 1] = asteroidDistance*cos(asteroidAngle);
+	}
+
 	// Setup Buffers
 	void *objectDrawData[] = {
 		&playerVert, &playerInd,
@@ -610,6 +622,7 @@ int main(void)
 	int playerBulletRotationMatrixLocation = glGetUniformLocation(shader, "playerBulletRotationMatrices");
 	int enemyBulletLocation = glGetUniformLocation(shader, "enemyBulletLocations");
 	int enemyBulletRotationMatrixLocation = glGetUniformLocation(shader, "enemyBulletRotationMatrices");
+	int asteroidLocation = glGetUniformLocation(shader, "asteroidLocations");
 
 	// Set Shader Variables
 	glUniformMatrix4fv(playerRotationLocation, 1, GL_FALSE, playerRotationMatrix);
@@ -623,6 +636,7 @@ int main(void)
 	glUniformMatrix4fv(playerBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, playerBulletRotationMatrices);
 	glUniform4fv(enemyBulletLocation, NUM_ENEMY_BULLETS, enemyBulletLocations);
 	glUniformMatrix4fv(enemyBulletRotationMatrixLocation, NUM_ENEMY_BULLETS, GL_FALSE, enemyBulletRotationMatrices);
+	glUniform2fv(asteroidLocation, NUM_ASTEROIDS, asteroidLocations);
 
 	double lastTime = glfwGetTime();
 	double maxFPS = 0;
@@ -782,6 +796,7 @@ int main(void)
 		glUniformMatrix4fv(playerBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, playerBulletRotationMatrices);
 		glUniform4fv(enemyBulletLocation, NUM_PLAYER_BULLETS, enemyBulletLocations);
 		glUniformMatrix4fv(enemyBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, enemyBulletRotationMatrices);
+		glUniform2fv(asteroidLocation, NUM_ASTEROIDS, asteroidLocations);
 
 		glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
 		glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);

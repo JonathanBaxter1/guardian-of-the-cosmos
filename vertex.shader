@@ -16,6 +16,8 @@ uniform mat4 playerBulletRotationMatrices[64];
 uniform vec4 enemyBulletLocations[128];
 uniform mat4 enemyBulletRotationMatrices[128];
 
+uniform vec2 asteroidLocations[256];
+
 
 void main()
 {
@@ -47,8 +49,8 @@ void main()
 		gl_Position[1] += enemyBulletLocations[gl_InstanceID][3]*1000.0;
 	} else if (type == 0.6) { // Asteroid
 		gl_Position = position;
-		gl_Position[0] -= playerLocation[0];
-		gl_Position[1] -= playerLocation[1];
+		gl_Position[0] += asteroidLocations[gl_InstanceID][0] - playerLocation[0];
+		gl_Position[1] += asteroidLocations[gl_InstanceID][1] - playerLocation[1];
 	}
 	gl_Position[0] *= 1.0/aspectRatio;
 };
