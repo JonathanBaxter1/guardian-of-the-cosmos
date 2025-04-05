@@ -17,11 +17,13 @@
 #define NUM_WORMHOLES 3
 #define NUM_PLAYER_BULLETS 64
 #define NUM_ENEMY_BULLETS 128
+#define NUM_ASTEROIDS 1024
 
 // How many sides in circles
 #define BOUNDARY_SIDES 256
 #define WORMHOLE_SIDES 8
 #define ENEMY_BULLET_SIDES 8
+#define ASTEROID_SIDES 8
 
 #define BOUNDARY_RADIUS 5.0
 #define PLAYER_SHOOT_RATE 10.0 // Bullets per second
@@ -42,6 +44,7 @@
 	glDrawElements(GL_LINE_LOOP, BOUNDARY_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[3])); \
 	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS); \
 	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS); \
+	glDrawElements(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6])); \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
@@ -460,7 +463,7 @@ int main(void)
 
 	/* Enemy Bullet Data */
 
-	float enemyBulletVert[4*ENEMY_BULLET_SIDES];
+	float enemyBulletVert[3*ENEMY_BULLET_SIDES];
 	unsigned int enemyBulletInd[ENEMY_BULLET_SIDES];
 	createCircle(enemyBulletVert, enemyBulletInd, 0.5, ENEMY_BULLET_SIDES);
 
@@ -484,6 +487,22 @@ int main(void)
 	}
 	float enemyBulletVelocities[2*NUM_ENEMY_BULLETS] = {0.0};
 
+	/* Asteroid Data */
+
+	float asteroidVert[3*ASTEROID_SIDES] = {
+		0.0, 0.02, 0.6,
+		0.009, 0.009, 0.6,
+		0.02, 0.0, 0.6,
+		0.017, -0.017, 0.6,
+		0.0, -0.01, 0.6,
+		-0.017, -0.017, 0.6,
+		-0.02, 0.0, 0.6,
+		-0.014, 0.014, 0.6,
+	};
+	unsigned int asteroidInd[ASTEROID_SIDES] = {
+		0, 1, 2, 3, 4, 5, 6, 7,
+	};
+
 	// Setup Buffers
 	void *objectDrawData[] = {
 		&playerVert, &playerInd,
@@ -492,6 +511,7 @@ int main(void)
 		&boundaryVert, &boundaryInd,
 		&playerBulletVert, &playerBulletInd,
 		&enemyBulletVert, &enemyBulletInd,
+		&asteroidVert, &asteroidInd,
 	};
 	unsigned int objectSizeData[] = {
 		sizeof(playerVert), sizeof(playerInd),
@@ -500,6 +520,7 @@ int main(void)
 		sizeof(boundaryVert), sizeof(boundaryInd),
 		sizeof(playerBulletVert), sizeof(playerBulletInd),
 		sizeof(enemyBulletVert), sizeof(enemyBulletInd),
+		sizeof(asteroidVert), sizeof(asteroidInd),
 	};
 
 	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
