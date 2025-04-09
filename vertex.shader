@@ -52,7 +52,7 @@ void main()
 		gl_Position = position;
 		gl_Position[0] += asteroidLocations[gl_InstanceID][0] - playerLocation[0];
 		gl_Position[1] += asteroidLocations[gl_InstanceID][1] - playerLocation[1];
-	} else if (type == 0.7) { // Test
+	} else if (type == 0.7) { // Test & Test2
 		gl_Position = position;
 		gl_Position[0] += offset[0];
 		gl_Position[1] += offset[1];

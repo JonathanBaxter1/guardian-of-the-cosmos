@@ -20,12 +20,14 @@
 #define NUM_ENEMY_BULLETS 128
 #define NUM_ASTEROIDS 256
 #define NUM_TESTS 8
+#define NUM_TESTS2 4
 
 // How many sides in circles
 #define BOUNDARY_SIDES 256
 #define WORMHOLE_SIDES 8
 #define ENEMY_BULLET_SIDES 8
 #define ASTEROID_SIDES 8
+#define TEST2_SIDES 16
 
 #define BOUNDARY_RADIUS 5.0
 #define PLAYER_SHOOT_RATE 10.0 // Bullets per second
@@ -35,19 +37,28 @@
 #define PLAYER_BULLET_HITBOX_RAD 0.03
 #define ENEMY_BULLET_RAD 0.005
 
+//	glDrawElements(GL_LINE_LOOP, sizeof(playerInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[0]));
+//	glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[1]), NUM_ENEMIES);
+//	glDrawElementsInstanced(GL_LINE_LOOP, sizeof(wormholeInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[2]), NUM_WORMHOLES);
+//	glDrawElements(GL_LINE_LOOP, BOUNDARY_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[3]));
+//	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS);
+//	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS);
+//	glDrawElementsInstanced(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6]), NUM_ASTEROIDS);
+//	glDrawElementsInstanced(GL_LINE_LOOP, sizeof(test2Ind)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[8]), NUM_TESTS2);
+
+
 #define Render() do {\
 	/* Set background to black */\
 	glClear(GL_COLOR_BUFFER_BIT); \
 \
 	/* Render objects */\
-	glDrawElements(GL_LINE_LOOP, sizeof(playerInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[0])); \
-	glDrawElementsInstanced(GL_LINES, sizeof(enemyInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[1]), NUM_ENEMIES); \
-	glDrawElementsInstanced(GL_LINE_LOOP, sizeof(wormholeInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[2]), NUM_WORMHOLES); \
-	glDrawElements(GL_LINE_LOOP, BOUNDARY_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[3])); \
-	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS); \
-	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS); \
-	glDrawElementsInstanced(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6]), NUM_ASTEROIDS); \
-	glDrawElementsInstanced(GL_LINES, sizeof(testInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[7]), NUM_TESTS); \
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO); \
+\
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0); \
+	glDrawElementsInstanced(GL_LINES, sizeof(testInd)/sizeof(unsigned int), GL_UNSIGNED_INT, 0, NUM_TESTS); \
+\
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)sizeof(testLocations)); \
+	glDrawElementsInstanced(GL_LINE_LOOP, sizeof(test2Ind)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)sizeof(testInd), NUM_TESTS2); \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
@@ -538,6 +549,21 @@ int main(void)
 		testLocations[i*2 + 1] = i*0.15 - 1.0;
 	}
 
+	/* Test Object 2 Data */
+	float test2Vert[3*TEST2_SIDES];
+	unsigned int test2Ind[TEST2_SIDES];
+	createCircle(test2Vert, test2Ind, 0.7, TEST2_SIDES);
+
+	for (int i = 0; i < TEST2_SIDES; i++) {
+		test2Vert[3*i] *= 0.02;
+		test2Vert[3*i + 1] *= 0.02;
+	}
+	float test2Locations[2*NUM_TESTS2];
+	for (int i = 0; i < NUM_TESTS2; i++) {
+		test2Locations[i*2] = 0.5;
+		test2Locations[i*2 + 1] = i*0.1 - 0.8;
+	}
+
 	// Setup Buffers
 	void *objectDrawData[] = {
 		&playerVert, &playerInd,
@@ -547,7 +573,6 @@ int main(void)
 		&playerBulletVert, &playerBulletInd,
 		&enemyBulletVert, &enemyBulletInd,
 		&asteroidVert, &asteroidInd,
-		&testVert, &testInd,
 	};
 	unsigned int objectSizeData[] = {
 		sizeof(playerVert), sizeof(playerInd),
@@ -557,7 +582,6 @@ int main(void)
 		sizeof(playerBulletVert), sizeof(playerBulletInd),
 		sizeof(enemyBulletVert), sizeof(enemyBulletInd),
 		sizeof(asteroidVert), sizeof(asteroidInd),
-		sizeof(testVert), sizeof(testInd),
 	};
 
 	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
@@ -624,17 +648,39 @@ int main(void)
 	}
 	glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
 
+	// New Buffers
+	for (int i = 0; i < sizeof(test2Ind)/sizeof(unsigned int); i++) {
+		test2Ind[i] += sizeof(testVert)/sizeof(float)/3;
+	}
+
+	unsigned int VBO2;
+	glGenBuffers(1, &VBO2);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO2);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(testVert)+sizeof(test2Vert), 0, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testVert), &testVert[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(testVert), sizeof(test2Vert), &test2Vert[0]);
+
+	glEnableVertexAttribArray(0); // Positions
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, (void*)0);
+
+	unsigned int IBO2;
+	glGenBuffers(1, &IBO2);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO2);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(testInd)+sizeof(test2Ind), 0, GL_STATIC_DRAW);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(testInd), &testInd[0]);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(testInd), sizeof(test2Ind), &test2Ind[0]);
+
 	unsigned int instanceVBO;
 	glGenBuffers(1, &instanceVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(testLocations), &testLocations[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(testLocations)+sizeof(test2Locations), 0, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testLocations), &testLocations[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(testLocations), sizeof(test2Locations), &test2Locations[0]);
 
-	glEnableVertexAttribArray(1); // offsets
-	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glEnableVertexAttribArray(1); // Offsets
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glVertexAttribDivisor(1, 1);
+
 
 	// Read shader code from files
 	unsigned int shader = createShaderFromFiles("vertex.shader", "fragment.shader");
@@ -835,8 +881,8 @@ int main(void)
 		glUniformMatrix4fv(enemyBulletRotationMatrixLocation, NUM_PLAYER_BULLETS, GL_FALSE, enemyBulletRotationMatrices);
 		glUniform2fv(asteroidLocation, NUM_ASTEROIDS, asteroidLocations);
 
-		glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
-		glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
+//		glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
+//		glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
 
 
 		/* Collision Detection */
