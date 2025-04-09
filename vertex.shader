@@ -1,7 +1,8 @@
 #version 330 core
 
-layout(location = 0) in vec4 position;
-layout(location = 2) in mat4 playerBulletRotationMatrix;
+layout (location = 0) in vec4 position;
+layout (location = 1) in vec2 offset;
+layout (location = 2) in mat4 playerBulletRotationMatrix;
 
 uniform vec4 enemyLocations[6];
 uniform mat4 enemyRotationMatrices[6];
@@ -51,8 +52,10 @@ void main()
 		gl_Position = position;
 		gl_Position[0] += asteroidLocations[gl_InstanceID][0] - playerLocation[0];
 		gl_Position[1] += asteroidLocations[gl_InstanceID][1] - playerLocation[1];
-	} else {
+	} else if (type == 0.7) { // Test
 		gl_Position = position;
+		gl_Position[0] += offset[0];
+		gl_Position[1] += offset[1];
 	}
 	gl_Position[0] *= 1.0/aspectRatio;
 };

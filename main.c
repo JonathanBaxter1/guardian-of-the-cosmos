@@ -19,6 +19,7 @@
 #define NUM_PLAYER_BULLETS 64
 #define NUM_ENEMY_BULLETS 128
 #define NUM_ASTEROIDS 256
+#define NUM_TESTS 8
 
 // How many sides in circles
 #define BOUNDARY_SIDES 256
@@ -46,7 +47,7 @@
 	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS); \
 	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS); \
 	glDrawElementsInstanced(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6]), NUM_ASTEROIDS); \
-	glDrawElements(GL_LINES, 20, GL_UNSIGNED_INT, 8+(void*)(long)(indOffsets[7])); \
+	glDrawElementsInstanced(GL_LINES, sizeof(testInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[7]), NUM_TESTS); \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
@@ -525,12 +526,17 @@ int main(void)
 		-0.1, 0.1, 0.7,
 	};
 	unsigned int testInd[] = {
+		0, 1,
 		1, 2,
 		2, 3,
-		3, 4,
-		4, 1,
-		1, 3,
+		3, 0,
+		0, 2,
 	};
+	float testLocations[2*NUM_TESTS];
+	for (int i = 0; i < NUM_TESTS; i++) {
+		testLocations[i*2] = i*0.1 - 1.0;
+		testLocations[i*2 + 1] = i*0.15 - 1.0;
+	}
 
 	// Setup Buffers
 	void *objectDrawData[] = {
@@ -617,6 +623,18 @@ int main(void)
 		glVertexAttribDivisor(index, 1);
 	}
 	glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
+
+	unsigned int instanceVBO;
+	glGenBuffers(1, &instanceVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(testLocations), &testLocations[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glEnableVertexAttribArray(1); // offsets
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glVertexAttribDivisor(1, 1);
 
 	// Read shader code from files
 	unsigned int shader = createShaderFromFiles("vertex.shader", "fragment.shader");
