@@ -46,6 +46,7 @@
 	glDrawElementsInstanced(GL_LINES, sizeof(playerBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[4]), NUM_PLAYER_BULLETS); \
 	glDrawElementsInstanced(GL_TRIANGLE_FAN, sizeof(enemyBulletInd)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)(long)(indOffsets[5]), NUM_ENEMY_BULLETS); \
 	glDrawElementsInstanced(GL_LINE_LOOP, ASTEROID_SIDES, GL_UNSIGNED_INT, (void*)(long)(indOffsets[6]), NUM_ASTEROIDS); \
+	glDrawElements(GL_LINES, 20, GL_UNSIGNED_INT, 8+(void*)(long)(indOffsets[7])); \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
@@ -492,7 +493,7 @@ int main(void)
 
 	/* Asteroid Data */
 
-	float asteroidVert[3*ASTEROID_SIDES] = {
+	float asteroidVert[] = {
 		0.0, 0.02, 0.6,
 		0.009, 0.009, 0.6,
 		0.02, 0.0, 0.6,
@@ -502,7 +503,7 @@ int main(void)
 		-0.02, 0.0, 0.6,
 		-0.014, 0.014, 0.6,
 	};
-	unsigned int asteroidInd[ASTEROID_SIDES] = {
+	unsigned int asteroidInd[] = {
 		0, 1, 2, 3, 4, 5, 6, 7,
 	};
 
@@ -515,6 +516,22 @@ int main(void)
 		asteroidLocations[i*2 + 1] = asteroidDistance*cos(asteroidAngle);
 	}
 
+	/* Test Object Data */
+
+	float testVert[] = {
+		0.1, 0.1, 0.7,
+		0.1, -0.1, 0.7,
+		-0.1, -0.1, 0.7,
+		-0.1, 0.1, 0.7,
+	};
+	unsigned int testInd[] = {
+		1, 2,
+		2, 3,
+		3, 4,
+		4, 1,
+		1, 3,
+	};
+
 	// Setup Buffers
 	void *objectDrawData[] = {
 		&playerVert, &playerInd,
@@ -524,6 +541,7 @@ int main(void)
 		&playerBulletVert, &playerBulletInd,
 		&enemyBulletVert, &enemyBulletInd,
 		&asteroidVert, &asteroidInd,
+		&testVert, &testInd,
 	};
 	unsigned int objectSizeData[] = {
 		sizeof(playerVert), sizeof(playerInd),
@@ -533,6 +551,7 @@ int main(void)
 		sizeof(playerBulletVert), sizeof(playerBulletInd),
 		sizeof(enemyBulletVert), sizeof(enemyBulletInd),
 		sizeof(asteroidVert), sizeof(asteroidInd),
+		sizeof(testVert), sizeof(testInd),
 	};
 
 	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
