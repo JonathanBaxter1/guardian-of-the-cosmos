@@ -17,8 +17,6 @@ uniform mat4 playerBulletRotationMatrices[64];
 uniform vec4 enemyBulletLocations[128];
 uniform mat4 enemyBulletRotationMatrices[128];
 
-uniform vec2 asteroidLocations[256];
-
 
 void main()
 {
@@ -34,7 +32,7 @@ void main()
 		gl_Position = wormholeRotationMatrix*position;
 		gl_Position[0] += wormholeLocations[gl_InstanceID][0] - playerLocation[0];
 		gl_Position[1] += wormholeLocations[gl_InstanceID][1] - playerLocation[1];
-	} else if (type == 0.3) { // Boundary
+	} else if (type == 0.3) { // Relative to Player
 		gl_Position = position;
 		gl_Position[0] -= playerLocation[0];
 		gl_Position[1] -= playerLocation[1];
@@ -48,14 +46,10 @@ void main()
 		gl_Position[0] += enemyBulletLocations[gl_InstanceID][0] - playerLocation[0];
 		gl_Position[1] += enemyBulletLocations[gl_InstanceID][1] - playerLocation[1];
 		gl_Position[1] += enemyBulletLocations[gl_InstanceID][3]*1000.0;
-	} else if (type == 0.6) { // Asteroid
+	} else if (type == 0.7) { // Relative to Player Instanced
 		gl_Position = position;
-		gl_Position[0] += asteroidLocations[gl_InstanceID][0] - playerLocation[0];
-		gl_Position[1] += asteroidLocations[gl_InstanceID][1] - playerLocation[1];
-	} else if (type == 0.7) { // Test & Test2
-		gl_Position = position;
-		gl_Position[0] += offset[0];
-		gl_Position[1] += offset[1];
+		gl_Position[0] += offset[0] - playerLocation[0];
+		gl_Position[1] += offset[1] - playerLocation[1];
 	}
 	gl_Position[0] *= 1.0/aspectRatio;
 };

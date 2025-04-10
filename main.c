@@ -11,6 +11,7 @@
 
 #define MAT_BUFFER_INDEX 2
 #define VSYNC_ON 1
+#define MAX_OBJECTS 256 // Maximum unique objects (instances do not count)
 
 // Maximum number of each object type
 // Update the vertex shader when any of these values are changed
@@ -18,7 +19,7 @@
 #define NUM_WORMHOLES 3
 #define NUM_PLAYER_BULLETS 64
 #define NUM_ENEMY_BULLETS 128
-#define NUM_ASTEROIDS 256
+#define NUM_ASTEROIDS 2048
 #define NUM_TESTS 8
 #define NUM_TESTS2 4
 
@@ -54,15 +55,39 @@
 	/* Render objects */\
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO); \
 \
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0); \
-	glDrawElementsInstanced(GL_LINES, sizeof(testInd)/sizeof(unsigned int), GL_UNSIGNED_INT, 0, NUM_TESTS); \
-\
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)sizeof(testLocations)); \
-	glDrawElementsInstanced(GL_LINE_LOOP, sizeof(test2Ind)/sizeof(unsigned int), GL_UNSIGNED_INT, (void*)sizeof(testInd), NUM_TESTS2); \
+	for (int i = 0; i < numObjects; i++) { \
+		GLsizei numInstances = objects[i]->numInstances; \
+		GLenum drawMode = objects[i]->drawMode; \
+		GLsizei numIndices = objects[i]->indicesSize/sizeof(unsigned int); \
+		void* objectIBOindex = (void*)(long)(objects[i]->IBOindex); \
+		if (numInstances == 1) { \
+			glDrawElements(drawMode, numIndices, GL_UNSIGNED_INT, objectIBOindex); \
+		} else { \
+			void* objectInstanceVBOindex = (void*)(long)(objects[i]->instanceVBOindex); \
+			glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), objectInstanceVBOindex); \
+			glDrawElementsInstanced(drawMode, numIndices, GL_UNSIGNED_INT, objectIBOindex, numInstances); \
+		} \
+	} \
 \
 	/* Swap front and back buffers */ \
 	glfwSwapBuffers(window); \
 	} while(0)
+
+struct Object
+{
+	float *vertices;
+	unsigned int *indices;
+	unsigned int verticesSize;
+	unsigned int indicesSize;
+	unsigned int VBOindex;
+	unsigned int IBOindex;
+	unsigned int instanceVBOindex;
+	GLenum drawMode;
+
+	float *instances;
+	unsigned int instancesSize;
+	unsigned int numInstances;
+};
 
 GLFWwindow* window;
 int* nullptr = NULL;
@@ -77,6 +102,15 @@ float playerHealth = 1.0;
 
 double playerRotationRate = 0.0;
 int isShooting = 0;
+
+unsigned int VBO;
+unsigned int IBO;
+unsigned int instanceVBO;
+unsigned int VBOindex = 0;
+unsigned int IBOindex = 0;
+unsigned int instanceVBOindex = 0;
+unsigned int numObjects = 0;
+struct Object *objects[MAX_OBJECTS];
 
 
 static unsigned int compileShader(unsigned int type, const char* source)
@@ -274,6 +308,66 @@ int isOnScreen(float x, float y)
 	return deltaX >= -aspectRatio*1.0 && deltaX <= aspectRatio*1.0 && deltaY >= -1.0 && deltaY <= 1.0;
 }
 
+int addObject(struct Object *object) {
+	objects[numObjects] = object;
+	numObjects++;
+	if (numObjects > MAX_OBJECTS) {
+		printf("Maximum number of objects exceeded (%d)\n", MAX_OBJECTS);
+		exit(-1);
+	}
+
+	for (int i = 0; i < object->indicesSize/sizeof(unsigned int); i++) {
+		object->indices[i] += VBOindex/sizeof(float)/3;
+	}
+
+	object->VBOindex = VBOindex;
+	object->IBOindex = IBOindex;
+	object->instanceVBOindex = instanceVBOindex;
+
+	VBOindex += object->verticesSize;
+	IBOindex += object->indicesSize;
+	instanceVBOindex += object->instancesSize;
+	return 0;
+}
+
+int initObjects() {
+	glGenBuffers(1, &VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, VBOindex, 0, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0); // Positions
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, (void*)0);
+
+	glGenBuffers(1, &IBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, IBOindex, 0, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &instanceVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	glBufferData(GL_ARRAY_BUFFER, instanceVBOindex, 0, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(1); // Offsets
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
+	glVertexAttribDivisor(1, 1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	printf("%d\n", numObjects);
+	for (int i = 0; i < numObjects; i++) {
+		glBufferSubData(GL_ARRAY_BUFFER, objects[i]->VBOindex, objects[i]->verticesSize, objects[i]->vertices);
+	}
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+	for (int i = 0; i < numObjects; i++) {
+		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, objects[i]->IBOindex, objects[i]->indicesSize, objects[i]->indices);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+	for (int i = 0; i < numObjects; i++) {
+		glBufferSubData(GL_ARRAY_BUFFER, objects[i]->instanceVBOindex, objects[i]->instancesSize, objects[i]->instances);
+	}
+	return 0;
+}
+
 int main(void)
 {
 
@@ -323,6 +417,14 @@ int main(void)
 		sin(playerAngle), cos(playerAngle), 0.0, 0.0,
 		0.0, 0.0, 1.0, 0.0,
 		0.0, 0.0, 0.0, 1.0,
+	};
+	struct Object player = {
+		.vertices = playerVert,
+		.indices = playerInd,
+		.verticesSize = sizeof(playerVert),
+		.indicesSize = sizeof(playerInd),
+		.drawMode = GL_LINE_LOOP,
+		.numInstances = 1,
 	};
 
 
@@ -444,6 +546,14 @@ int main(void)
 		boundaryVert[3*i] *= BOUNDARY_RADIUS;
 		boundaryVert[3*i + 1] *= BOUNDARY_RADIUS;
 	}
+	struct Object boundary = {
+		.vertices = boundaryVert,
+		.indices = boundaryInd,
+		.verticesSize = sizeof(boundaryVert),
+		.indicesSize = sizeof(boundaryInd),
+		.drawMode = GL_LINE_LOOP,
+		.numInstances = 1,
+	};
 
 	/* Player Bullet Data */
 
@@ -506,19 +616,22 @@ int main(void)
 	/* Asteroid Data */
 
 	float asteroidVert[] = {
-		0.0, 0.02, 0.6,
-		0.009, 0.009, 0.6,
-		0.02, 0.0, 0.6,
-		0.017, -0.017, 0.6,
-		0.0, -0.01, 0.6,
-		-0.017, -0.017, 0.6,
-		-0.02, 0.0, 0.6,
-		-0.014, 0.014, 0.6,
+		0.0, 0.02, 0.7,
+		0.009, 0.009, 0.7,
+		0.02, 0.0, 0.7,
+		0.017, -0.017, 0.7,
+		0.0, -0.01, 0.7,
+		-0.017, -0.017, 0.7,
+		-0.02, 0.0, 0.7,
+		-0.014, 0.014, 0.7,
 	};
+	for (int i = 0; i < sizeof(asteroidVert)/sizeof(float)/3; i++) {
+		asteroidVert[i*3] *= 0.5;
+		asteroidVert[i*3 + 1] *= 0.5;
+	}
 	unsigned int asteroidInd[] = {
 		0, 1, 2, 3, 4, 5, 6, 7,
 	};
-
 	float asteroidLocations[2*NUM_ASTEROIDS];
 	for (int i = 0; i < NUM_ASTEROIDS; i++) {
 		float asteroidDistance = ((float)rand())/RAND_MAX;
@@ -528,159 +641,21 @@ int main(void)
 		asteroidLocations[i*2 + 1] = asteroidDistance*cos(asteroidAngle);
 	}
 
-	/* Test Object Data */
-
-	float testVert[] = {
-		0.1, 0.1, 0.7,
-		0.1, -0.1, 0.7,
-		-0.1, -0.1, 0.7,
-		-0.1, 0.1, 0.7,
-	};
-	unsigned int testInd[] = {
-		0, 1,
-		1, 2,
-		2, 3,
-		3, 0,
-		0, 2,
-	};
-	float testLocations[2*NUM_TESTS];
-	for (int i = 0; i < NUM_TESTS; i++) {
-		testLocations[i*2] = i*0.1 - 1.0;
-		testLocations[i*2 + 1] = i*0.15 - 1.0;
-	}
-
-	/* Test Object 2 Data */
-	float test2Vert[3*TEST2_SIDES];
-	unsigned int test2Ind[TEST2_SIDES];
-	createCircle(test2Vert, test2Ind, 0.7, TEST2_SIDES);
-
-	for (int i = 0; i < TEST2_SIDES; i++) {
-		test2Vert[3*i] *= 0.02;
-		test2Vert[3*i + 1] *= 0.02;
-	}
-	float test2Locations[2*NUM_TESTS2];
-	for (int i = 0; i < NUM_TESTS2; i++) {
-		test2Locations[i*2] = 0.5;
-		test2Locations[i*2 + 1] = i*0.1 - 0.8;
-	}
-
-	// Setup Buffers
-	void *objectDrawData[] = {
-		&playerVert, &playerInd,
-		&enemyVert, &enemyInd,
-		&wormholeVert, &wormholeInd,
-		&boundaryVert, &boundaryInd,
-		&playerBulletVert, &playerBulletInd,
-		&enemyBulletVert, &enemyBulletInd,
-		&asteroidVert, &asteroidInd,
-	};
-	unsigned int objectSizeData[] = {
-		sizeof(playerVert), sizeof(playerInd),
-		sizeof(enemyVert), sizeof(enemyInd),
-		sizeof(wormholeVert), sizeof(wormholeInd),
-		sizeof(boundaryVert), sizeof(boundaryInd),
-		sizeof(playerBulletVert), sizeof(playerBulletInd),
-		sizeof(enemyBulletVert), sizeof(enemyBulletInd),
-		sizeof(asteroidVert), sizeof(asteroidInd),
+	struct Object asteroids = {
+		.vertices = asteroidVert,
+		.indices = asteroidInd,
+		.instances = asteroidLocations,
+		.verticesSize = sizeof(asteroidVert),
+		.indicesSize = sizeof(asteroidInd),
+		.instancesSize = sizeof(asteroidLocations),
+		.drawMode = GL_LINE_LOOP,
+		.numInstances = NUM_ASTEROIDS,
 	};
 
-	const unsigned int numObjects = sizeof(objectSizeData)/sizeof(unsigned int)/2;
-	if (sizeof(objectDrawData)/sizeof(void*) != sizeof(objectSizeData)/sizeof(unsigned int)) {
-		printf("Error: objectDrawData and objectSizeData must be same size\n");
-		exit(-1);
-	}
-	unsigned int vertOffsets[numObjects];
-	unsigned int indOffsets[numObjects];
-	vertOffsets[0] = 0;
-	indOffsets[0] = 0;
-	for (int i = 1; i < numObjects; i++) {
-		vertOffsets[i] = vertOffsets[i-1] + objectSizeData[i*2-2];
-		indOffsets[i] = indOffsets[i-1] + objectSizeData[i*2-1];
-	}
-
-	for (int object = 1; object < numObjects; object++) {
-		unsigned int* indPointer = objectDrawData[object*2 + 1];
-		for (int i = 0; i < objectSizeData[object*2 + 1]/sizeof(unsigned int); i++) {
-			indPointer[i] += vertOffsets[object]/sizeof(float)/3;
-		}
-	}
-
-	// Generate and Bind Vertex Buffer
-	unsigned int vbo;
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	// GL_STATIC_DRAW means vertices will be written once and read many times
-	unsigned int VBOsize = 0;
-	for (int i = 0; i < numObjects; i++) {
-		VBOsize += objectSizeData[i*2];
-	}
-	glBufferData(GL_ARRAY_BUFFER, VBOsize, 0, GL_STATIC_DRAW);
-	for (int i = 0; i < numObjects; i++) {
-		glBufferSubData(GL_ARRAY_BUFFER, vertOffsets[i], objectSizeData[i*2], objectDrawData[i*2]);
-	}
-
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, 0);
-
-	// Generate and Bind Index Buffer
-	unsigned int ibo; // Index Buffer Object
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	// GL_STATIC_DRAW
-	unsigned int IBOsize = 0;
-	for (int i = 0; i < numObjects; i++) {
-		IBOsize += objectSizeData[i*2 + 1];
-	}
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, IBOsize, 0, GL_STATIC_DRAW);
-	for (int i = 0; i < numObjects; i++) {
-		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indOffsets[i], objectSizeData[i*2 + 1], objectDrawData[i*2 + 1]);
-	}
-
-	// Generate and Bind Rotation Matrix Buffer
-	unsigned int matBuffer;
-	glGenBuffers(1, &matBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, matBuffer);
-	for (int i = 0; i < 4; i++) {
-		GLuint index = MAT_BUFFER_INDEX + i;
-		glEnableVertexAttribArray(index);
-		glVertexAttribPointer(index, 4, GL_FLOAT, GL_FALSE, sizeof(float)*16, (void*)(4*sizeof(float)*i));
-		glVertexAttribDivisor(index, 1);
-	}
-	glBufferData(GL_ARRAY_BUFFER, 16*sizeof(float)*NUM_PLAYER_BULLETS, playerBulletRotationMatrices, GL_DYNAMIC_DRAW);
-
-	// New Buffers
-	for (int i = 0; i < sizeof(test2Ind)/sizeof(unsigned int); i++) {
-		test2Ind[i] += sizeof(testVert)/sizeof(float)/3;
-	}
-
-	unsigned int VBO2;
-	glGenBuffers(1, &VBO2);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO2);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(testVert)+sizeof(test2Vert), 0, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testVert), &testVert[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(testVert), sizeof(test2Vert), &test2Vert[0]);
-
-	glEnableVertexAttribArray(0); // Positions
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*3, (void*)0);
-
-	unsigned int IBO2;
-	glGenBuffers(1, &IBO2);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO2);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(testInd)+sizeof(test2Ind), 0, GL_STATIC_DRAW);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(testInd), &testInd[0]);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(testInd), sizeof(test2Ind), &test2Ind[0]);
-
-	unsigned int instanceVBO;
-	glGenBuffers(1, &instanceVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(testLocations)+sizeof(test2Locations), 0, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(testLocations), &testLocations[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(testLocations), sizeof(test2Locations), &test2Locations[0]);
-
-	glEnableVertexAttribArray(1); // Offsets
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)0);
-	glVertexAttribDivisor(1, 1);
-
+	addObject(&player);
+	addObject(&asteroids);
+	addObject(&boundary);
+	initObjects();
 
 	// Read shader code from files
 	unsigned int shader = createShaderFromFiles("vertex.shader", "fragment.shader");
