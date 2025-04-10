@@ -669,6 +669,8 @@ int main(void)
 	glUniform4f(colorLocation, redShade, 0.0, 1.0, 1.0);
 
 	// Shader Variable Locations
+	int timeUniformLocation = glGetUniformLocation(shader, "time");
+
 	int playerRotationLocation = glGetUniformLocation(shader, "playerRotationMatrix");
 	int enemyLocation = glGetUniformLocation(shader, "enemyLocations");
 	int playerLocation = glGetUniformLocation(shader, "playerLocation");
@@ -682,7 +684,11 @@ int main(void)
 	int enemyBulletRotationMatrixLocation = glGetUniformLocation(shader, "enemyBulletRotationMatrices");
 	int asteroidLocation = glGetUniformLocation(shader, "asteroidLocations");
 
+	unsigned int frameCount = 0;
+
 	// Set Shader Variables
+	glUniform1f(timeUniformLocation, (float)glfwGetTime());
+
 	glUniformMatrix4fv(playerRotationLocation, 1, GL_FALSE, playerRotationMatrix);
 	glUniform4fv(enemyLocation, NUM_ENEMIES, enemyLocations);
 	glUniform2f(playerLocation, playerX, playerY);
@@ -700,7 +706,6 @@ int main(void)
 	double maxFPS = 0;
 	double minFPS = 1000000;
 	double avgFPS = 0;
-	int frameCount = 0;
 	float timeSinceLastBullet = 0.0;
 
 	// Enable Anti-Aliasing
@@ -845,6 +850,8 @@ int main(void)
 		updateRotationMatrix(wormholeAngle, wormholeRotationMatrix);
 
 		/* Set Shader Variables */
+		glUniform1f(timeUniformLocation, (float)curTime);
+
 		glUniform2f(playerLocation, playerX, playerY);
 		glUniformMatrix4fv(playerRotationLocation, 1, GL_FALSE, playerRotationMatrix);
 		glUniform4fv(enemyLocation, NUM_ENEMIES, enemyLocations);

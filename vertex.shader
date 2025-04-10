@@ -4,6 +4,8 @@ layout (location = 0) in vec4 position;
 layout (location = 1) in vec2 offset;
 layout (location = 2) in mat4 playerBulletRotationMatrix;
 
+uniform float time;
+
 uniform vec4 enemyLocations[6];
 uniform mat4 enemyRotationMatrices[6];
 uniform vec2 wormholeLocations[3];
@@ -16,6 +18,16 @@ uniform vec4 playerBulletLocations[64];
 uniform mat4 playerBulletRotationMatrices[64];
 uniform vec4 enemyBulletLocations[128];
 uniform mat4 enemyBulletRotationMatrices[128];
+
+mat4 rotate(float angle)
+{
+	return mat4(
+		cos(angle), -sin(angle), 0.0, 0.0,
+		sin(angle), cos(angle), 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	);
+}
 
 
 void main()
@@ -46,8 +58,9 @@ void main()
 		gl_Position[0] += enemyBulletLocations[gl_InstanceID][0] - playerLocation[0];
 		gl_Position[1] += enemyBulletLocations[gl_InstanceID][1] - playerLocation[1];
 		gl_Position[1] += enemyBulletLocations[gl_InstanceID][3]*1000.0;
-	} else if (type == 0.7) { // Relative to Player Instanced
-		gl_Position = position;
+	} else if (type == 0.7) { // Relative to Player Instanced (Asteroids)
+		float rotationRate = time/4.0*(gl_InstanceID%16-8);
+		gl_Position = rotate(rotationRate)*position;
 		gl_Position[0] += offset[0] - playerLocation[0];
 		gl_Position[1] += offset[1] - playerLocation[1];
 	}
