@@ -317,7 +317,6 @@ int initObjects() {
 	glVertexAttribDivisor(1, 1);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	printf("%d\n", numObjects);
 	for (int i = 0; i < numObjects; i++) {
 		glBufferSubData(GL_ARRAY_BUFFER, objects[i]->VBOindex, objects[i]->verticesSize, objects[i]->vertices);
 	}
@@ -488,8 +487,8 @@ int main(void)
 	createCircle(wormholeVert, wormholeInd, 0.2, WORMHOLE_SIDES);
 
 	for (int i = 0; i < WORMHOLE_SIDES; i++) {
-		wormholeVert[3*i] *= 0.2;
-		wormholeVert[3*i + 1] *= 0.2;
+		wormholeVert[3*i] *= 0.1;
+		wormholeVert[3*i + 1] *= 0.1;
 	}
 
 	float wormholeInfo[3*NUM_WORMHOLES] = {
