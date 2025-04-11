@@ -346,8 +346,16 @@ int main(void)
 
 	// Initialize glfw
 	if (!glfwInit()) {
+		printf("GLFW init failed\n");
 		return -1;
 	}
+
+	// Use OpenGL 3.3 (Core Profile)
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+//	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // For MacOS?
+
 
 	// Create a fullscreen window and its OpenGL context
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
@@ -359,6 +367,8 @@ int main(void)
 	printf("Aspect Ratio: %f\n", aspectRatio);
 	window = glfwCreateWindow(screenWidth, screenHeight, WINDOW_NAME, monitor, NULL);
 	if (!window) {
+		int code = glfwGetError(NULL);
+		printf("No window, Error code: %d\n", code);
 		glfwTerminate();
 		return -1;
 	}
@@ -627,6 +637,10 @@ int main(void)
 		.drawMode = GL_LINE_LOOP,
 		.numInstances = NUM_ASTEROIDS,
 	};
+
+	unsigned int VAO;
+	glGenVertexArrays(1, &VAO);
+	glBindVertexArray(VAO);
 
 	addObject(&player);
 	addObject(&enemies);

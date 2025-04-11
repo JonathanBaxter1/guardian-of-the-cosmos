@@ -2,7 +2,7 @@
 
 layout (location = 0) in vec4 position;
 layout (location = 1) in vec3 info;
-layout (location = 2) in float rotation;
+//layout (location = 2) in float rotation;
 
 uniform float time;
 uniform float aspectRatio;
