@@ -373,6 +373,7 @@ int main(void)
 		return -1;
 	}
 
+
 	// Make the window's context current
 	glfwMakeContextCurrent(window);
 
@@ -381,6 +382,8 @@ int main(void)
 
 	// Initialize glew
 	glewInit();
+
+	glViewport(0, 0, screenWidth, screenHeight);
 
 	/* Player Data */
 	float playerVert[] = {
