@@ -20,15 +20,12 @@
 #define NUM_PLAYER_BULLETS 64
 #define NUM_ENEMY_BULLETS 128
 #define NUM_ASTEROIDS 2048
-#define NUM_TESTS 8
-#define NUM_TESTS2 4
 
 // How many sides in circles
 #define BOUNDARY_SIDES 256
 #define WORMHOLE_SIDES 8
 #define ENEMY_BULLET_SIDES 8
 #define ASTEROID_SIDES 8
-#define TEST2_SIDES 16
 
 #define BOUNDARY_RADIUS 5.0
 #define PLAYER_SHOOT_RATE 10.0 // Bullets per second
@@ -243,27 +240,6 @@ void handleKeyboardInput(float deltaT, unsigned int shader)
 	playerY += playerVelocityY;
 }
 
-int updateRotationMatrix(float angle, float *rotationMatrix)
-{
-	rotationMatrix[0] = cos(angle);
-	rotationMatrix[1] = -sin(angle);
-	rotationMatrix[4] = sin(angle);
-	rotationMatrix[5] = cos(angle);
-	return 0;
-}
-
-int updateRotationMatrices(float locations[], float *rotationMatrices, int numElements)
-{
-	for (int i = 0; i < numElements; i++) {
-		float angle = locations[i*4 + 2];
-		rotationMatrices[i*16] = cos(angle);
-		rotationMatrices[i*16 + 1] = -sin(angle);
-		rotationMatrices[i*16 + 4] = sin(angle);
-		rotationMatrices[i*16 + 5] = cos(angle);
-	}
-	return 0;
-}
-
 int createCircle(float *circleVertices, unsigned int *circleIndices, float type, int numSides)
 {
 	for (int i = 0; i < numSides; i++) {
@@ -283,7 +259,7 @@ int isOnScreen(float x, float y)
 	return deltaX >= -aspectRatio*1.0 && deltaX <= aspectRatio*1.0 && deltaY >= -1.0 && deltaY <= 1.0;
 }
 
-int spawnBullet(float *bulletLocations, float *bulletVelocities, float *bulletRotationMatrices, int numBullets, float x, float y, float angle, float deltaT, float velocity)
+int spawnBullet(float *bulletLocations, float *bulletVelocities, int numBullets, float x, float y, float angle, float deltaT, float velocity)
 {
 	for (int i = 0; i < numBullets; i++) {
 		if (isOnScreen(bulletLocations[i*3], bulletLocations[i*3 + 1])) continue;
@@ -292,7 +268,6 @@ int spawnBullet(float *bulletLocations, float *bulletVelocities, float *bulletRo
 		bulletLocations[i*3 + 2] = angle;
 		bulletVelocities[i*2] = velocity*sin(angle)*deltaT;
 		bulletVelocities[i*2 + 1] = velocity*cos(angle)*deltaT;
-		updateRotationMatrix(playerAngle, bulletRotationMatrices + i*16);
 		break;
 	}
 	return 0;
@@ -409,12 +384,6 @@ int main(void)
 		0, 1, 2,
 	};
 
-	float playerRotationMatrix[] = {
-		cos(playerAngle), -sin(playerAngle), 0.0, 0.0,
-		sin(playerAngle), cos(playerAngle), 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0,
-	};
 	struct Object player = {
 		.vertices = playerVert,
 		.indices = playerInd,
@@ -578,12 +547,6 @@ int main(void)
 		playerBulletLocations[i*3 + 1] = 1024;
 		playerBulletLocations[i*3 + 2] = 0.0;
 	}
-	float playerBulletRotationMatrices[16*NUM_PLAYER_BULLETS] = {0.0};
-	for (int i = 0; i < NUM_PLAYER_BULLETS; i++) {
-		for (int j = 0; j < 4; j++) {
-			playerBulletRotationMatrices[i*16 + j*5] = 1.0;
-		}
-	}
 	float playerBulletVelocities[2*NUM_PLAYER_BULLETS] = {0.0};
 	struct Object playerBullets = {
 		.vertices = playerBulletVert,
@@ -613,12 +576,6 @@ int main(void)
 		enemyBulletLocations[i*3] = 0.0;
 		enemyBulletLocations[i*3 + 1] = 1024;
 		enemyBulletLocations[i*3 + 2] = 0.0;
-	}
-	float enemyBulletRotationMatrices[16*NUM_ENEMY_BULLETS] = {0.0};
-	for (int i = 0; i < NUM_ENEMY_BULLETS; i++) {
-		for (int j = 0; j < 4; j++) {
-			enemyBulletRotationMatrices[i*16 + j*5] = 1.0;
-		}
 	}
 	float enemyBulletVelocities[2*NUM_ENEMY_BULLETS] = {0.0};
 	struct Object enemyBullets = {
@@ -761,7 +718,6 @@ int main(void)
 		if (playerAngle >= 2*PI) {
 			playerAngle -= 2*PI;
 		};
-		updateRotationMatrix(playerAngle, playerRotationMatrix);
 
 		/* Enemy Movement, Rotation and Shooting */
 		for (int i = 0; i < NUM_ENEMIES; i++) {
@@ -806,7 +762,7 @@ int main(void)
 		}
 		if (timeSinceLastBullet >= 1.0/PLAYER_SHOOT_RATE) {
 			timeSinceLastBullet -= 1.0/PLAYER_SHOOT_RATE;
-			spawnBullet(playerBulletLocations, playerBulletVelocities, playerBulletRotationMatrices, NUM_PLAYER_BULLETS, playerX, playerY, playerAngle, deltaT, 4.0);
+			spawnBullet(playerBulletLocations, playerBulletVelocities, NUM_PLAYER_BULLETS, playerX, playerY, playerAngle, deltaT, 4.0);
 		}
 
 		// Move Bullets
@@ -838,7 +794,7 @@ int main(void)
 
 			if (timeSinceLastEnemyBullet[i] >= 1.0/ENEMY_SHOOT_RATE) {
 				timeSinceLastEnemyBullet[i] -= 1.0/ENEMY_SHOOT_RATE;
-				spawnBullet(enemyBulletLocations, enemyBulletVelocities, enemyBulletRotationMatrices, NUM_ENEMY_BULLETS, enemyX, enemyY, enemyAngle, deltaT, 1.0);
+				spawnBullet(enemyBulletLocations, enemyBulletVelocities, NUM_ENEMY_BULLETS, enemyX, enemyY, enemyAngle, deltaT, 1.0);
 			}
 		}
 
